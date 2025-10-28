@@ -1,0 +1,13 @@
+=LET(
+    combined_data, {
+        FILTER({MAIN_BE!A:A, MAIN_BE!F:F}, MAIN_BE!A:A <> "");
+        FILTER({QST_BE!A:A, QST_BE!F:F}, QST_BE!A:A <> "");
+        FILTER({NPC_BE!A:A, NPC_BE!F:F}, NPC_BE!A:A <> "");
+        FILTER({ETC_BE!A:A, ETC_BE!F:F}, ETC_BE!A:A <> "")
+    },
+    ids_to_lookup, A1:A,
+    
+    ARRAYFORMULA(IF(ids_to_lookup="", "",
+        IFERROR(VLOOKUP(ids_to_lookup, combined_data, 2, FALSE))
+    ))
+)
