@@ -1,0 +1,4 @@
+=FILTER(
+    {Compare!A2:A, Compare!B2:B, IF(Compare!E2:E <> "", SUBSTITUTE(Compare!E2:E, "{{BR}}", "<br>"), Compare!D2:D)},
+    Compare!A2:A <> ""
+ )
