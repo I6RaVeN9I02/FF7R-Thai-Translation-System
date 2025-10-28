@@ -1,5 +1,5 @@
 =LET(
-    jp_dialogues, QUERY(JP!A:C, ""SELECT A, C WHERE C IS NOT NULL AND B <> 'ACTOR' AND A IS NOT NULL""),
+    jp_dialogues, QUERY(JP!A:C, "SELECT A, C WHERE C IS NOT NULL AND B <> 'ACTOR' AND A IS NOT NULL"),
     en_data, MAP(
         INDEX(jp_dialogues, 0, 1),
         LAMBDA(id,
@@ -7,15 +7,19 @@
                 en_matches, IFERROR(FILTER(ENJP!C:C, ENJP!A:A=id)),
                 num_rows, IFNA(ROWS(en_matches), 0),
                 IF(num_rows >= 2,
-                    {INDEX(en_matches, 1), INDEX(en_matches, ROWS(en_matches))},
+                    LET(
+                        english_actor_name, INDEX(en_matches, ROWS(en_matches)),
+                        thai_actor_name, IFERROR(XLOOKUP(english_actor_name, Names_JP_TH_EN!B:B, Names_JP_TH_EN!C:C), english_actor_name),
+                        {INDEX(en_matches, 1), thai_actor_name}
+                    ),
                     IF(num_rows = 1, 
-                       {INDEX(en_matches, 1), """"},
-                       {"""", """"}
+                       {INDEX(en_matches, 1), ""},
+                       {"", ""}
                     )
                 )
             )
         )
     ),
     full_table, {jp_dialogues, en_data},
-    {{""ID"", ""DIALOGUE_JP"", ""DIALOGUE_EN"", ""ACTOR_EN""}; 
-    QUERY(full_table, ""SELECT * WHERE Col3 IS NOT NULL AND Col3 <> ''"")})
+    QUERY(full_table, "SELECT * WHERE Col3 IS NOT NULL AND Col3 <> ''")
+)
