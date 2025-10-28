@@ -1,0 +1,13 @@
+=LET(
+    jp_names, UNIQUE(FILTER(JP!C:C, JP!B:B="ACTOR")),
+    en_names, MAP(jp_names, LAMBDA(jp_name,
+        IFERROR(
+            LET(
+                first_id, INDEX(FILTER(JP!A:A, (JP!C:C=jp_name) * (JP!B:B="ACTOR")), 1),
+                en_matches, FILTER(ENJP!C:C, ENJP!A:A=first_id),
+                INDEX(en_matches, ROWS(en_matches))
+            )
+        )
+    )),
+    {jp_names, en_names}
+)
