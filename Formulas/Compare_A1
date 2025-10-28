@@ -1,0 +1,43 @@
+=LET(
+    jp_data, FILTER(JP!A:C, JP!A:A<>""),
+    
+    en_texts, MAP(
+        INDEX(jp_data, 0, 1),
+        INDEX(jp_data, 0, 2),
+        INDEX(jp_data, 0, 3),
+        LAMBDA(id, type, jp_text,
+            IFERROR(
+                LET(
+                    en_matches, FILTER(ENJP!C:C, ENJP!A:A = id),
+                    IF(
+                        type = "ACTOR",
+                        INDEX(en_matches, ROWS(en_matches)),
+                        INDEX(en_matches, 1)
+                    )
+                ),
+                jp_text
+            )
+        )
+    ),
+    
+    th_texts, MAP(
+        INDEX(jp_data, 0, 1),
+        INDEX(jp_data, 0, 2),
+        INDEX(jp_data, 0, 3),
+        LAMBDA(id, type, jp_text,
+            IFERROR(
+                LET(
+                    th_matches, FILTER(THJP!C:C, THJP!A:A = id),
+                    IF(
+                        type = "ACTOR",
+                        INDEX(th_matches, ROWS(th_matches)),
+                        INDEX(th_matches, 1)
+                    )
+                ),
+                jp_text
+            )
+        )
+    ),
+
+    {{"ID", "TYPE_JP", "TEXT_JP", "TEXT_EN", "TEXT_TH"}; jp_data, en_texts, th_texts}
+)
