@@ -1,0 +1,143 @@
+/**
+ * ฟังก์ชันพิเศษ: สร้างเมนูสำหรับ "Project Rosetta"
+ */
+function onOpen() {
+  SpreadsheetApp.getUi()
+      .createMenu('Project Rosetta 🗿 (V2)')
+      .addItem('ขั้นตอนที่ 1: จารึกศิลา JP', 'rosetta_step1_GenerateJpMap')
+      .addItem('ขั้นตอนที่ 2: คัดลอกจารึก US/ENJP', 'rosetta_step2_TagOtherLanguages')
+      .addSeparator()
+      .addItem('ขั้นตอนที่ 3: แปลจารึก (สร้างผลลัพธ์)', 'rosetta_step3_AssembleFinalData')
+      .addSeparator()
+      .addItem('ล้างชีต Rosetta ทั้งหมด', 'rosetta_cleanupTempSheets')
+      .addToUi();
+}
+
+// --- การตั้งค่า ---
+const RAW_JP_SHEET_NAME = 'JP';
+const RAW_US_SHEET_NAME = 'US';
+const RAW_ENJP_SHEET_NAME = 'ENJP';
+const TARGET_SHEET_NAME = 'Names_JP_TH_EN';
+const TEMP_JP_MAP = 'Rosetta_JP_Map';
+const TEMP_US_TAGGED = 'Rosetta_US_Tagged';
+const TEMP_ENJP_TAGGED = 'Rosetta_ENJP_Tagged';
+
+// --- ขั้นตอนที่ 1 ---
+function rosetta_step1_GenerateJpMap() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const rawJPSheet = ss.getSheetByName(RAW_JP_SHEET_NAME);
+  let tempSheet = ss.getSheetByName(TEMP_JP_MAP);
+  if (tempSheet) { tempSheet.clear(); } 
+  else { tempSheet = ss.insertSheet(TEMP_JP_MAP); }
+
+  const data = rawJPSheet.getRange('A:C').getValues();
+  const results = [['rosetta_id', 'name_JP', '3LID', 'Full_ID']];
+  let idCounter = 1;
+  
+  for (const row of data) {
+    const fullId = row[0]; const type = row[1]; const name = row[2];
+    if (type === 'ACTOR' && fullId) {
+      const lid = fullId.slice(-3);
+      const rosettaId = `R_${String(idCounter++).padStart(5, '0')}`;
+      results.push([rosettaId, name || '', lid, fullId]);
+    }
+  }
+  
+  tempSheet.getRange(1, 1, results.length, 4).setValues(results);
+  SpreadsheetApp.getUi().alert('ขั้นตอนที่ 1 สำเร็จ: จารึกศิลา JP พร้อม ID พิเศษเรียบร้อยแล้วค่ะ');
+}
+
+// --- ขั้นตอนที่ 2 (FIXED) ---
+function rosetta_step2_TagOtherLanguages() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const jpMapSheet = ss.getSheetByName(TEMP_JP_MAP);
+  if (!jpMapSheet || jpMapSheet.getLastRow() < 2) {
+    ui.alert('กรุณารันขั้นตอนที่ 1 ให้สำเร็จก่อนค่ะ');
+    return;
+  }
+  
+  // *** BUG FIX: สร้าง "แผนที่กลับ" จาก Full_ID -> rosetta_id ให้ถูกต้อง ***
+  const jpMapData = jpMapSheet.getRange(2, 1, jpMapSheet.getLastRow() - 1, 4).getValues();
+  const reverseMap = new Map(jpMapData.map(row => [row[3], row[0]])); // Key: Full_ID (col D), Value: rosetta_id (col A)
+
+  tagData(ss, RAW_US_SHEET_NAME, TEMP_US_TAGGED, 'name_US', reverseMap);
+  tagData(ss, RAW_ENJP_SHEET_NAME, TEMP_ENJP_TAGGED, 'name_ENJP_ref', reverseMap);
+  
+  ui.alert('ขั้นตอนที่ 2 สำเร็จ: คัดลอกจารึก US/ENJP ด้วย ID พิเศษเรียบร้อยแล้วค่ะ');
+}
+
+// --- ขั้นตอนที่ 3 ---
+function rosetta_step3_AssembleFinalData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const targetSheet = ss.getSheetByName(TARGET_SHEET_NAME);
+  
+  const jpMapSheet = ss.getSheetByName(TEMP_JP_MAP);
+  const usTaggedSheet = ss.getSheetByName(TEMP_US_TAGGED);
+  const enjpTaggedSheet = ss.getSheetByName(TEMP_ENJP_TAGGED);
+
+  if (!jpMapSheet || !usTaggedSheet || !enjpTaggedSheet) {
+    ui.alert('กรุณารันขั้นตอนที่ 1 และ 2 ก่อนค่ะ'); return;
+  }
+
+  const usDb = new Map(usTaggedSheet.getRange(2, 1, usTaggedSheet.getLastRow() -1, 2).getValues());
+  const enjpDb = new Map(enjpTaggedSheet.getRange(2, 1, enjpTaggedSheet.getLastRow() -1, 2).getValues());
+  const jpMapData = jpMapSheet.getRange('A2:D').getValues();
+  
+  const masterList = Array.from(new Map(jpMapData.filter(r => r[1] !== '' && !r[1].endsWith('0')).map(r => [`${r[1]}|${r[2]}`, { name: r[1], lid: r[2] }])).values())
+    .sort((a, b) => a.lid.localeCompare(b.lid) || a.name.localeCompare(b.name));
+
+  const finalResults = [['name_JP', '3LID', 'name_US', 'name_ENJP_ref']];
+
+  for (const item of masterList) {
+    const associatedRosettaIds = jpMapData.filter(r => r[1] === item.name && r[2] === item.lid).map(r => r[0]);
+    
+    const usCandidates = associatedRosettaIds.map(id => usDb.get(id)).filter(Boolean);
+    const enjpCandidates = associatedRosettaIds.map(id => enjpDb.get(id)).filter(Boolean);
+
+    const finalUS = getMostFrequentString(usCandidates);
+    const finalENJP = getMostFrequentString(enjpCandidates);
+
+    finalResults.push([item.name, item.lid, finalUS, finalENJP]);
+  }
+
+  targetSheet.getRange('H:K').clearContent();
+  targetSheet.getRange(1, 8, finalResults.length, 4).setValues(finalResults);
+  ui.alert(`Project Rosetta สำเร็จ!\nแปลจารึก ${masterList.length} รายการเรียบร้อยแล้วค่ะ`);
+}
+
+// --- ฟังก์ชันเสริม (FIXED) ---
+function rosetta_cleanupTempSheets() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  [TEMP_JP_MAP, TEMP_US_TAGGED, TEMP_ENJP_TAGGED].forEach(name => {
+    const sheet = ss.getSheetByName(name);
+    if (sheet) { ss.deleteSheet(sheet); }
+  });
+  SpreadsheetApp.getUi().alert('ล้างชีต Rosetta ทั้งหมดเรียบร้อยแล้วค่ะ');
+}
+
+function tagData(ss, sourceName, targetName, headerName, reverseMap) {
+  const sourceSheet = ss.getSheetByName(sourceName);
+  let targetSheet = ss.getSheetByName(targetName);
+  if (targetSheet) { targetSheet.clear(); }
+  else { targetSheet = ss.insertSheet(targetName); }
+  
+  const sourceData = sourceSheet.getRange('A:C').getValues();
+  const results = [['rosetta_id', headerName]];
+  
+  for (const row of sourceData) {
+    const fullId = row[0]; const type = row[1]; const name = row[2];
+    if (type === 'ACTOR' && name && fullId && reverseMap.has(fullId)) {
+      const rosettaId = reverseMap.get(fullId);
+      results.push([rosettaId, name]);
+    }
+  }
+  targetSheet.getRange(1, 1, results.length, 2).setValues(results);
+}
+
+function getMostFrequentString(arr) {
+  if (!arr || arr.length === 0) return '';
+  const frequencyMap = arr.reduce((acc, val) => { acc[val] = (acc[val] || 0) + 1; return acc; }, {});
+  return Object.keys(frequencyMap).reduce((a, b) => frequencyMap[a] > frequencyMap[b] ? a : b);
+}
