@@ -1,0 +1,233 @@
+/**
+ * ฟังก์ชันพิเศษ: สร้างเมนูสำหรับ "Project Sherlock" (V7.4_Lite)
+ */
+function onOpen() {
+  SpreadsheetApp.getUi()
+      .createMenu('Project Sherlock 🕵️ (V7.4_Lite)')
+      .addItem('ขั้นตอนที่ 1: รวบรวมหลักฐาน', 'sherlock_step1_GatherEvidence')
+      .addItem('ขั้นตอนที่ 2: วิเคราะห์ (Lite)', 'sherlock_step2_AnalyzeAndScoreCases_V7_4_Lite')
+      .addSeparator()
+      .addItem('ขั้นตอนที่ 3: สรุปผล (Lite/Fast)', 'sherlock_step3_PresentFinalReport_V7_4_Lite')
+      .addSeparator()
+      .addItem('ล้างข้อมูล (เก็บแฟ้มคดีไว้)', 'sherlock_cleanupSmart')
+      .addToUi();
+}
+
+// --- การตั้งค่า ---
+const RAW_JP_SHEET_NAME = 'JP';
+const RAW_US_SHEET_NAME = 'US';
+const RAW_ENJP_SHEET_NAME = 'ENJP';
+const TARGET_SHEET_NAME = 'Names_JP_TH_EN';
+const TEMP_JP_INDEX = 'Sherlock_JP_Index';
+const TEMP_US_EVIDENCE = 'Sherlock_US_Evidence';
+const TEMP_ENJP_EVIDENCE = 'Sherlock_ENJP_Evidence';
+const TEMP_CASE_FILES = 'Sherlock_Case_Files';
+const AUDIT_SHEET_NAME = 'AUDIT_REVIEW';
+
+// --- ขั้นตอนที่ 1 (ไม่มีการเปลี่ยนแปลง) ---
+function sherlock_step1_GatherEvidence() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const rawJPSheet = ss.getSheetByName(RAW_JP_SHEET_NAME);
+  let jpIndexSheet = ss.getSheetByName(TEMP_JP_INDEX);
+  if (jpIndexSheet) { jpIndexSheet.clear(); } else { jpIndexSheet = ss.insertSheet(TEMP_JP_INDEX); }
+  const jpData = rawJPSheet.getRange('A:C').getValues();
+  const jpResults = [['case_id', 'name_JP', '3LID', 'Full_ID']];
+  let caseIdCounter = 1;
+  for (const row of jpData) {
+    const fullId = row[0]; const type = row[1]; const name = row[2];
+    if (type === 'ACTOR' && name && fullId && !fullId.endsWith('0')) {
+      const lid = fullId.slice(-3);
+      const caseId = `CASE_${String(caseIdCounter++).padStart(5, '0')}`;
+      jpResults.push([caseId, name, lid, fullId]);
+    }
+  }
+  jpIndexSheet.getRange(1, 1, jpResults.length, 4).setValues(jpResults);
+  createEvidenceSheet(ss, RAW_US_SHEET_NAME, TEMP_US_EVIDENCE, 'name_US');
+  createEvidenceSheet(ss, RAW_ENJP_SHEET_NAME, TEMP_ENJP_EVIDENCE, 'name_ENJP_ref');
+  ui.alert('ขั้นตอนที่ 1 สำเร็จ: รวบรวมหลักฐานทั้งหมดเรียบร้อยแล้วค่ะ');
+}
+
+// --- ขั้นตอนที่ 2 (V7.4_Lite - Flagging System) ---
+function sherlock_step2_AnalyzeAndScoreCases_V7_4_Lite() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const jpIndexSheet = ss.getSheetByName(TEMP_JP_INDEX);
+  const usEvidenceSheet = ss.getSheetByName(TEMP_US_EVIDENCE);
+  const enjpEvidenceSheet = ss.getSheetByName(TEMP_ENJP_EVIDENCE);
+  if (!jpIndexSheet || !usEvidenceSheet || !enjpEvidenceSheet) {
+    ui.alert('กรุณารันขั้นตอนที่ 1 ก่อนค่ะ'); return;
+  }
+  let caseFilesSheet = ss.getSheetByName(TEMP_CASE_FILES);
+  if (caseFilesSheet) { caseFilesSheet.clear(); } else { caseFilesSheet = ss.insertSheet(TEMP_CASE_FILES); }
+  
+  const usEvidenceMap = new Map(usEvidenceSheet.getDataRange().getValues());
+  const enjpEvidenceMap = new Map(enjpEvidenceSheet.getDataRange().getValues());
+  const jpIndexData = jpIndexSheet.getDataRange().getValues();
+  jpIndexData.shift();
+  
+  const contextMap = new Map();
+  for (const row of jpIndexData) {
+    const caseId = row[0]; const name = row[1]; const lid = row[2]; const fullId = row[3];
+    const key = `${name}|${lid}`;
+    if (!contextMap.has(key)) { contextMap.set(key, []); }
+    contextMap.get(key).push({ caseId, fullId });
+  }
+
+  const caseFileResults = [['Context_Key', 'Suggested_US', 'Suggested_ENJP', 'Flag_Reason', 'Status', 'Evidence_US', 'Evidence_ENJP', 'Relevant_Full_IDs']];
+  
+  for (const [contextKey, fullIdGroup] of contextMap.entries()) {
+    const usCandidates = fullIdGroup.map(item => usEvidenceMap.get(item.fullId)).filter(Boolean);
+    const enjpCandidates = fullIdGroup.map(item => enjpEvidenceMap.get(item.fullId)).filter(Boolean);
+
+    // --- ตรรกะ "ระบบติดธง" (Flagging System) ใหม่ ---
+    const uniqueUsCount = new Set(usCandidates).size;
+    const uniqueEnjpCount = new Set(enjpCandidates).size;
+    
+    let status = 'AUTO_ACCEPTED';
+    const reasons = [];
+
+    if (usCandidates.length === 0) {
+      status = 'FLAGGED_FOR_REVIEW';
+      reasons.push('US_MISSING');
+    } else if (uniqueUsCount > 1) {
+      status = 'FLAGGED_FOR_REVIEW';
+      reasons.push('US_CONFLICT');
+    }
+
+    if (uniqueEnjpCount > 1) {
+      status = 'FLAGGED_FOR_REVIEW';
+      reasons.push('ENJP_CONFLICT');
+    }
+    
+    const flagReason = (status === 'FLAGGED_FOR_REVIEW') ? reasons.join('; ') : 'N/A';
+    // --- สิ้นสุดตรรกะ "ระบบติดธง" ---
+
+    const bestUS = getMostFrequentString(usCandidates);
+    const bestENJP = getMostFrequentString(enjpCandidates);
+
+    caseFileResults.push([
+      contextKey,
+      bestUS,
+      bestENJP,
+      flagReason,
+      status,
+      [...new Set(usCandidates)].join(', '),
+      [...new Set(enjpCandidates)].join(', '),
+      fullIdGroup.map(item => item.fullId).join(', ')
+    ]);
+  }
+  
+  caseFilesSheet.getRange(1, 1, caseFileResults.length, 8).setValues(caseFileResults);
+  ui.alert('ขั้นตอนที่ 2 (Lite) สำเร็จ: วิเคราะห์และติดธงคดีทั้งหมดแล้วค่ะ');
+}
+
+
+// --- ขั้นตอนที่ 3 (V7.4_Lite - Fast Sort-Loop) ---
+function sherlock_step3_PresentFinalReport_V7_4_Lite() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const targetSheet = ss.getSheetByName(TARGET_SHEET_NAME);
+  const caseFilesSheet = ss.getSheetByName(TEMP_CASE_FILES);
+  if (!caseFilesSheet) { ui.alert('กรุณารันขั้นตอนที่ 2 ก่อนค่ะ'); return; }
+
+  const caseFilesData = caseFilesSheet.getDataRange().getValues();
+  caseFilesData.shift(); // เอา Header ออก
+
+  // --- ปรับโครงสร้างใหม่: Sort-Loop ---
+  // 1. เรียงลำดับข้อมูลทั้งหมดก่อน (Sort by LID, then Name)
+  caseFilesData.sort((a, b) => {
+      const [aName, aLid] = a[0].split('|');
+      const [bName, bLid] = b[0].split('|');
+      const lidCompare = aLid.localeCompare(bLid);
+      if (lidCompare !== 0) return lidCompare;
+      return aName.localeCompare(bName);
+  });
+
+  const finalReport = [['name_JP', '3LID', 'name_US', 'name_ENJP_ref']];
+  const auditReport = [['Status', 'name_JP', '3LID', 'Flag_Reason', 'Suggested_US', 'Suggested_ENJP', 'Evidence_US', 'Evidence_ENJP', 'Relevant_Full_IDs']];
+  
+  // 2. วน Loop ที่เรียงลำดับแล้วเพียงครั้งเดียว (Single Loop)
+  for (const caseFile of caseFilesData) {
+    const [name, lid] = caseFile[0].split('|');
+    const [contextKey, suggestedUS_old, suggestedENJP_old, flagReason, status, evidenceUS, evidenceENJP, relevantIDs] = caseFile;
+
+    // --- ตรรกะที่แยกการทำงานของ US และ ENJP (ไม่มีการเปลี่ยนแปลง) ---
+    
+    // 1. ตรรกะสำหรับคอลัมน์ US (ซับซ้อนและมี Fallback)
+    const usCandidatesList = evidenceUS ? [...new Set(evidenceUS.split(', '))] : [];
+    let finalUS = '';
+    if (usCandidatesList.length > 0) {
+      finalUS = usCandidatesList.join(', ');
+    } else {
+      const enjpForFallback = evidenceENJP ? evidenceENJP.split(', ') : [];
+      finalUS = getMostFrequentString(enjpForFallback);
+    }
+    
+    // 2. ตรรกะสำหรับคอลัมน์ ENJP (เรียบง่ายและตรงไปตรงมา)
+    const enjpCandidatesList = evidenceENJP ? evidenceENJP.split(', ') : [];
+    const finalENJP = getMostFrequentString(enjpCandidatesList);
+    // --- สิ้นสุดตรรกะที่ไม่มีการเปลี่ยนแปลง ---
+
+    finalReport.push([name, lid, finalUS, finalENJP]);
+
+    // การสร้าง Audit Report (ใช้ flagReason แทน score)
+    if (status === 'FLAGGED_FOR_REVIEW') {
+      auditReport.push([status, name, lid, flagReason, suggestedUS_old, suggestedENJP_old, evidenceUS, evidenceENJP, relevantIDs]);
+    }
+  }
+
+  // --- การเขียนผลลัพธ์ (ไม่มีการเปลี่ยนแปลง) ---
+  targetSheet.getRange('H:K').clearContent();
+  targetSheet.getRange(1, 8, finalReport.length, 4).setValues(finalReport);
+
+  let auditSheet = ss.getSheetByName(AUDIT_SHEET_NAME);
+  if (auditSheet) { auditSheet.clear(); } else { auditSheet = ss.insertSheet(AUDIT_SHEET_NAME); }
+  
+  if (auditReport.length > 1) {
+    auditSheet.getRange(1, 1, auditReport.length, 9).setValues(auditReport);
+    ui.alert(`ขั้นตอนที่ 3 (Lite/Fast) สำเร็จ!\n- อัปเดตผลลัพธ์ใน '${TARGET_SHEET_NAME}'\n- สร้างแฟ้มคดีสำหรับตรวจสอบใน '${AUDIT_SHEET_NAME}' จำนวน ${auditReport.length - 1} รายการค่ะ`);
+  } else {
+    if(auditSheet) { ss.deleteSheet(auditSheet); }
+    ui.alert(`ขั้นตอนที่ 3 (Lite/Fast) สำเร็จ!\n- อัปเดตผลลัพธ์ใน '${TARGET_SHEET_NAME}'\n- ไม่พบรายการที่ต้องตรวจสอบเพิ่มเติมค่ะ`);
+  }
+}
+
+
+// --- ฟังก์ชันเสริมและฟังก์ชันอื่นๆ ทั้งหมด (ไม่มีการเปลี่ยนแปลง) ---
+function sherlock_cleanupSmart() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const sheetsToDelete = [TEMP_JP_INDEX, TEMP_US_EVIDENCE, TEMP_ENJP_EVIDENCE];
+  sheetsToDelete.forEach(name => {
+    const sheet = ss.getSheetByName(name);
+    if (sheet) { ss.deleteSheet(sheet); }
+  });
+  const caseFilesSheet = ss.getSheetByName(TEMP_CASE_FILES);
+  if (caseFilesSheet) {
+    caseFilesSheet.deleteColumn(8); 
+  }
+  ui.alert('ล้างข้อมูลสำเร็จ!\n- ลบชีต Index และ Evidence\n- เก็บแฟ้มคดีและรายการตรวจสอบไว้\n- ลบคอลัมน์ Full IDs ที่ไม่จำเป็นออกจากแฟ้มคดีแล้วค่ะ');
+}
+
+function createEvidenceSheet(ss, sourceName, targetName, headerName) {
+  const sourceSheet = ss.getSheetByName(sourceName);
+  let targetSheet = ss.getSheetByName(targetName);
+  if (targetSheet) { targetSheet.clear(); }
+  else { targetSheet = ss.insertSheet(targetName); }
+  const data = sourceSheet.getRange('A:C').getValues();
+  const results = [['Full_ID', headerName]];
+  for (const row of data) {
+    const fullId = row[0]; const type = row[1]; const name = row[2];
+    if (type === 'ACTOR' && name && fullId) {
+      results.push([fullId, name]);
+    }
+  }
+  targetSheet.getRange(1, 1, results.length, 2).setValues(results);
+}
+
+function getMostFrequentString(arr) {
+  if (!arr || arr.length === 0) return '';
+  const frequencyMap = arr.reduce((acc, val) => { acc[val] = (acc[val] || 0) + 1; return acc; }, {});
+  return Object.keys(frequencyMap).reduce((a, b) => frequencyMap[a] > frequencyMap[b] ? a : b);
+}
