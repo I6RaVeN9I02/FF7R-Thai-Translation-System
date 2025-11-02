@@ -1,0 +1,249 @@
+/**
+ * =============================================================
+ * Project Sherlock (V7.4_FullAuto_CF_Flex)
+ * ฉบับสมบูรณ์ (รวม Global Constants ที่หายไป)
+ * =============================================================
+ */
+
+/**
+ * ฟังก์ชันพิเศษ: สร้างเมนูสำหรับ "Project Sherlock" (V7.4_FullAuto_CF_Flex)
+ */
+function onOpen() {
+  SpreadsheetApp.getUi()
+      .createMenu('Project Sherlock 🕵️ (7.4_Auto_CF_Flex)')
+      .addItem('Run Full Process (Flex)', 'sherlock_runFullProcess_V7_4_CF_Flex')
+      .addSeparator()
+      .addItem('ล้างข้อมูลถาวร (ลบ Temp/Audit ทั้งหมด)', 'sherlock_cleanupPermanent')
+      .addToUi();
+}
+
+// --- การตั้งค่า (Global Constants) ---
+// [FIX] ส่วนนี้คือส่วนที่หายไป ทำให้เกิด Error ค่ะ
+const RAW_JP_SHEET_NAME = 'JP';
+const RAW_US_SHEET_NAME = 'US';
+const RAW_ENJP_SHEET_NAME = 'ENJP';
+const TARGET_SHEET_NAME = 'Names_JP_TH_EN';
+const TEMP_JP_INDEX = 'Sherlock_JP_Index';
+const TEMP_US_EVIDENCE = 'Sherlock_US_Evidence';
+const TEMP_ENJP_EVIDENCE = 'Sherlock_ENJP_Evidence';
+const TEMP_CASE_FILES = 'Sherlock_Case_Files';
+const AUDIT_SHEET_NAME = 'AUDIT_REVIEW';
+
+
+/**
+ * =============================================================
+ * V7.4_FullAuto_CF_Flex - (Flexible Version)
+ * [แก้ไข SyntaxError บรรทัดที่ 185]
+ * =============================================================
+ */
+function sherlock_runFullProcess_V7_4_CF_Flex() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const startTime = new Date();
+
+  ui.alert('เริ่มกระบวนการ 7.4_FullAuto_CF (Flex)...\nกำลังตรวจสอบความสมบูรณ์ของข้อมูลค่ะ');
+
+  // --- Phase 1: Load Evidence & Run Checks (Flexible) ---
+  const usSheet = ss.getSheetByName(RAW_US_SHEET_NAME);
+  const jpSheet = ss.getSheetByName(RAW_JP_SHEET_NAME);
+  const targetSheet = ss.getSheetByName(TARGET_SHEET_NAME);
+  
+  // --- การตรวจสอบที่จำเป็น (Fatal Error Check) ---
+  if (!usSheet || !jpSheet || !targetSheet) {
+    ui.alert('ข้อผิดพลาดร้ายแรง: ไม่พบชีตข้อมูลดิบที่จำเป็น (JP, US) หรือชีตเป้าหมาย (Names_JP_TH_EN) ค่ะ สคริปต์จะหยุดทำงาน');
+    return;
+  }
+  
+  // --- การตรวจสอบที่ไม่จำเป็น (Non-Fatal Checks) ---
+  const enjpSheet = ss.getSheetByName(RAW_ENJP_SHEET_NAME); 
+  const nonFatalAlerts = [];
+  const rowCounts = [];
+  
+  rowCounts.push({ name: RAW_JP_SHEET_NAME, count: jpSheet.getLastRow() });
+  rowCounts.push({ name: RAW_US_SHEET_NAME, count: usSheet.getLastRow() });
+
+  // 1. ตรวจสอบ ENJP (Alert #1)
+  if (enjpSheet) {
+    rowCounts.push({ name: RAW_ENJP_SHEET_NAME, count: enjpSheet.getLastRow() });
+  } else {
+    nonFatalAlerts.push(`- ไม่พบชีต '${RAW_ENJP_SHEET_NAME}' ค่ะ ระบบจะประมวลผลต่อโดยไม่มีข้อมูล ENJP`);
+  }
+
+  // 2. ตรวจสอบความต่างของแถว (Alert #2)
+  if (rowCounts.length > 1) {
+    const counts = rowCounts.map(r => r.count);
+    const maxRows = Math.max(...counts);
+    const minRows = Math.min(...counts);
+    
+    if (maxRows - minRows > 500) {
+      const details = rowCounts.map(r => `${r.name}: ${r.count} แถว`).join(', ');
+      nonFatalAlerts.push(`- จำนวนแถวของชีตข้อมูลดิบแตกต่างกันเกิน 500 แถว (${details})`);
+    }
+  }
+
+  // 3. แสดงผลคำเตือนทั้งหมด (ถ้ามี)
+  if (nonFatalAlerts.length > 0) {
+    ui.alert('⚠️ คำเตือน (แจ้งเพื่อทราบ):\n\n' + nonFatalAlerts.join('\n\n') + '\n\nสคริปต์จะยังคงทำงานต่อค่ะ');
+  }
+
+  // --- สิ้นสุดการตรวจสอบ ---
+  
+  let caseFilesSheet = ss.getSheetByName(TEMP_CASE_FILES);
+  if (!caseFilesSheet) {
+    caseFilesSheet = ss.insertSheet(TEMP_CASE_FILES);
+  }
+  caseFilesSheet.clear();
+
+  const usEvidenceMap = new Map(usSheet.getRange('A:C').getValues()
+    .filter(row => row[1] === 'ACTOR' && row[0] && row[2])
+    .map(row => [row[0], row[2]]));
+    
+  let enjpEvidenceMap = new Map();
+  if (enjpSheet) {
+    enjpEvidenceMap = new Map(enjpSheet.getRange('A:C').getValues()
+      .filter(row => row[1] === 'ACTOR' && row[0] && row[2])
+      .map(row => [row[0], row[2]]));
+  }
+
+  // --- Phase 2: Build Context (In-Memory) ---
+  const jpData = jpSheet.getRange('A:C').getValues();
+  const contextMap = new Map();
+
+  for (const row of jpData) {
+    const fullId = row[0];
+    const type = row[1];
+    const name = row[2];
+
+    if (type === 'ACTOR' && name && fullId && !fullId.endsWith('0')) {
+      const lid = fullId.slice(-3);
+      const contextKey = `${name}|${lid}`; 
+
+      if (!contextMap.has(contextKey)) {
+        contextMap.set(contextKey, { us: [], enjp: [] });
+      }
+
+      const usName = usEvidenceMap.get(fullId);
+      const enjpName = enjpEvidenceMap.get(fullId); 
+
+      const evidenceBin = contextMap.get(contextKey);
+      if (usName) {
+        evidenceBin.us.push(usName);
+      }
+      if (enjpName) { 
+        evidenceBin.enjp.push(enjpName);
+      }
+    }
+  }
+
+  // --- Phase 3: Process & Create Reports (In-Memory) ---
+  const finalReport = [['name_JP', '3LID', 'name_US', 'name_ENJP_ref']];
+  const caseFilesReport = [['Context_Key', 'Suggested_US', 'Suggested_ENJP', 'Flag_Reason', 'Status', 'Evidence_US', 'Evidence_ENJP']];
+  
+  const contextKeys = Array.from(contextMap.keys());
+
+  contextKeys.sort((a, b) => {
+      const [aName, aLid] = a.split('|');
+      const [bName, bLid] = b.split('|');
+      const lidCompare = aLid.localeCompare(bLid);
+      if (lidCompare !== 0) return lidCompare;
+      return aName.localeCompare(bName);
+  });
+  
+  for (const contextKey of contextKeys) {
+    const [name, lid] = contextKey.split('|');
+    const evidence = contextMap.get(contextKey);
+    const usCandidates = evidence.us;
+    const enjpCandidates = evidence.enjp; 
+
+    // --- A. ตรรกะ "Final Justice V7.4" (ปลอดภัย) ---
+    const usCandidatesList = [...new Set(usCandidates)];
+    let finalUS = '';
+    if (usCandidatesList.length > 0) {
+      finalUS = usCandidatesList.join(', ');
+    } else {
+      finalUS = getMostFrequentString(enjpCandidates); 
+    }
+    const finalENJP = getMostFrequentString(enjpCandidates); 
+    finalReport.push([name, lid, finalUS, finalENJP]);
+
+    // --- B. ตรรกะ "Flagging System" (ปลอดภัย) ---
+    const uniqueUsCount = new Set(usCandidates).size;
+    const uniqueEnjpCount = new Set(enjpCandidates).size; 
+    
+    let status = 'AUTO_ACCEPTED';
+    const reasons = [];
+
+    if (usCandidates.length === 0) {
+      status = 'FLAGGED_FOR_REVIEW';
+      reasons.push('US_MISSING');
+    } else if (uniqueUsCount > 1) {
+      status = 'FLAGGED_FOR_REVIEW';
+      reasons.push('US_CONFLICT');
+    }
+
+    if (uniqueEnjpCount > 1) { 
+      status = 'FLAGGED_FOR_REVIEW';
+      reasons.push('ENJP_CONFLICT');
+    }
+    
+    const flagReason = (status === 'FLAGGED_FOR_REVIEW') ? reasons.join('; ') : 'N/A';
+    const bestUS = getMostFrequentString(usCandidates);
+    const bestENJP = getMostFrequentString(enjpCandidates); 
+    const evidenceUS = [...new Set(usCandidates)].join(', ');
+    const evidenceENJP = [...new Set(enjpCandidates)].join(', '); 
+
+    caseFilesReport.push([contextKey, bestUS, bestENJP, flagReason, status, evidenceUS, evidenceENJP]);
+  }
+
+  // --- Phase 4: Final Output (Two-Sheet Write) ---
+  targetSheet.getRange('H:K').clearContent();
+  targetSheet.getRange(1, 8, finalReport.length, 4).setValues(finalReport);
+  
+  caseFilesSheet.getRange(1, 1, caseFilesReport.length, 7).setValues(caseFilesReport);
+  
+  const endTime = new Date();
+  const duration = (endTime.getTime() - startTime.getTime()) / 1000;
+
+  ui.alert(`กระบวนการ 7.4_FullAuto_CF (Flex) สำเร็จ!\n- สร้างผลลัพธ์ ${finalReport.length - 1} รายการใน '${TARGET_SHEET_NAME}'\n- สร้างแฟ้มคดี ${caseFilesReport.length - 1} รายการใน '${TEMP_CASE_FILES}'\n- ใช้เวลาทั้งหมด: ${duration.toFixed(2)} วินาทีค่ะ`);
+}
+
+
+/**
+ * ฟังก์ชันเสริม: ล้างข้อมูลถาวร (Permanent Cleanup)
+ * (ยังคงเหมือนเดิม)
+ */
+function sherlock_cleanupPermanent() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const sheetsToDelete = [
+    TEMP_JP_INDEX, 
+    TEMP_US_EVIDENCE, 
+    TEMP_ENJP_EVIDENCE, 
+    AUDIT_SHEET_NAME
+  ];
+  let deletedCount = 0;
+  
+  sheetsToDelete.forEach(name => {
+    const sheet = ss.getSheetByName(name);
+    if (sheet) { 
+      ss.deleteSheet(sheet); 
+      deletedCount++;
+    }
+  });
+  
+  if (deletedCount > 0) {
+    ui.alert(`ล้างข้อมูลถาวรสำเร็จ!\nลบชีต Temp และ Audit ทั้งหมด ${deletedCount} ชีตค่ะ\n(คงเหลือ '${TEMP_CASE_FILES}' ไว้ตามที่กำหนด)`);
+  } else {
+    ui.alert('ไม่พบชีต Temp หรือ Audit ให้ลบค่ะ');
+  }
+}
+
+/**
+ * ฟังก์ชันเสริม: หาค่าที่พบบ่อยที่สุด (ยังคงเดิม)
+ * (ยังคงเหมือนเดิม)
+ */
+function getMostFrequentString(arr) {
+  if (!arr || arr.length === 0) return '';
+  const frequencyMap = arr.reduce((acc, val) => { acc[val] = (acc[val] || 0) + 1; return acc; }, {});
+  return Object.keys(frequencyMap).reduce((a, b) => frequencyMap[a] > frequencyMap[b] ? a : b);
+}
