@@ -1,0 +1,129 @@
+/**
+ * ฟังก์ชันพิเศษ: จะทำงานทุกครั้งที่เปิดไฟล์ Google Sheets นี้
+ * เพื่อสร้างเมนูเฉพาะกิจขึ้นมา
+ */
+function onOpen() {
+  SpreadsheetApp.getUi()
+      .createMenu('เครื่องมือช่วยแปล 🛠️') // <-- ชื่อเมนูของท่าน
+      .addItem('1. สร้าง/อัปเดตรายชื่อเมืองนี้', 'runFinalMappingProcess') // <-- ชื่อปุ่ม + ฟังก์ชันที่จะรัน
+      .addToUi();
+}
+
+/**
+ * ===============================================================
+ * Context-Aware Mapping Engine V4 (Final)
+ * ===============================================================
+ * สร้างขึ้นตามพิมพ์เขียวตรรกะของนายท่าน
+ * - สร้างลิสต์หลักจากคู่ (name_JP, 3LID) ที่ไม่ซ้ำกัน
+ * - สำหรับแต่ละคู่ จะทำการ "สืบสวน" หา Full ID ที่มีข้อมูลครบถ้วนที่สุด
+ * - จัดลำดับความสำคัญในการหา: พยายามหา Full ID ที่มีข้อมูลทั้ง US และ ENJP ก่อน
+ * - วางผลลัพธ์สุดท้ายเริ่มต้นที่คอลัมน์ H
+ */
+
+// --- (กรุณาตั้งค่าชื่อชีตตรงนี้) ---
+const RAW_JP_SHEET_NAME = 'JP';
+const RAW_US_SHEET_NAME = 'US';
+const RAW_ENJP_SHEET_NAME = 'ENJP';
+const TARGET_SHEET_NAME = 'Names_JP_TH_EN';
+// ---------------------------------
+
+/**
+ * ฟังก์ชันหลัก: กดรันฟังก์ชันนี้เพียงฟังก์ชันเดียวผ่านเมนู
+ */
+function runFinalMappingProcess() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const rawJPSheet = ss.getSheetByName(RAW_JP_SHEET_NAME);
+  const rawUSSheet = ss.getSheetByName(RAW_US_SHEET_NAME);
+  const rawENJPSheet = ss.getSheetByName(RAW_ENJP_SHEET_NAME);
+  const targetSheet = ss.getSheetByName(TARGET_SHEET_NAME);
+
+  if (!rawJPSheet || !rawUSSheet || !rawENJPSheet || !targetSheet) {
+    ui.alert('เกิดข้อผิดพลาด: ไม่พบชีตข้อมูลดิบหรือชีตเป้าหมายค่ะ');
+    return;
+  }
+
+  ui.showModalDialog(HtmlService.createHtmlOutput('<b>กำลังวิเคราะห์ข้อมูล...</b>'), 'Step 1/3');
+  
+  const jpContextMap = createJpContextMap(rawJPSheet);
+  const usNameMap = createFullIdToNameMap(rawUSSheet);
+  const enjpNameMap = createFullIdToNameMap(rawENJPSheet);
+
+  const masterList = Array.from(jpContextMap.keys())
+    .map(key => ({ name: key.split('|')[0], lid: key.split('|')[1] }))
+    .sort((a, b) => a.lid.localeCompare(b.lid) || a.name.localeCompare(b.name));
+
+  ui.showModalDialog(HtmlService.createHtmlOutput('<b>กำลังสืบค้นและจับคู่...</b>'), 'Step 2/3');
+  const finalResults = [];
+  const header = ['name_JP', '3LID', 'name_US', 'name_ENJP_ref'];
+  finalResults.push(header);
+
+  for (const item of masterList) {
+    const contextKey = `${item.name}|${item.lid}`;
+    const possibleFullIds = jpContextMap.get(contextKey) || [];
+    
+    let bestUS = '';
+    let bestENJP = '';
+    let bestMatchFound = false;
+
+    for (const fullId of possibleFullIds) {
+      const currentUS = usNameMap.get(fullId) || '';
+      const currentENJP = enjpNameMap.get(fullId) || '';
+
+      if (currentUS && currentENJP) {
+        bestUS = currentUS;
+        bestENJP = currentENJP;
+        bestMatchFound = true;
+        break; 
+      }
+      
+      if (!bestUS && currentUS) {
+        bestUS = currentUS;
+      }
+      if (!bestENJP && currentENJP) {
+        bestENJP = currentENJP;
+      }
+    }
+    finalResults.push([item.name, item.lid, bestUS, bestENJP]);
+  }
+
+  ui.showModalDialog(HtmlService.createHtmlOutput('<b>กำลังเขียนผลลัพธ์...</b>'), 'Step 3/3');
+  
+  targetSheet.getRange('H:K').clearContent();
+  targetSheet.getRange(1, 8, finalResults.length, finalResults[0].length).setValues(finalResults);
+  
+  ui.alert(`กระบวนการสืบค้นเสร็จสมบูรณ์!\nประมวลผล ${masterList.length} รายการเรียบร้อยแล้วค่ะ`);
+}
+
+// --- ฟังก์ชันผู้ช่วย ---
+
+function createJpContextMap(sheet) {
+  const map = new Map();
+  const data = sheet.getRange('A:C').getValues();
+  for (const row of data) {
+    const fullId = row[0]; const type = row[1]; const name = row[2];
+    if (type === 'ACTOR' && name && fullId && !fullId.endsWith('0')) {
+      const lid = fullId.slice(-3);
+      const key = `${name}|${lid}`;
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key).push(fullId);
+    }
+  }
+  return map;
+}
+
+function createFullIdToNameMap(sheet) {
+  const map = new Map();
+  if (!sheet) return map;
+  const data = sheet.getRange('A:C').getValues();
+  for (const row of data) {
+    const fullId = row[0]; const type = row[1]; const name = row[2];
+    if (type === 'ACTOR' && name && fullId) {
+      map.set(fullId, name);
+    }
+  }
+  return map;
+}
