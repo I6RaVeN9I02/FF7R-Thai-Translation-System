@@ -1,0 +1,19 @@
+=LET(
+    actor_names_raw, FILTER(JP!C:C, (JP!B:B="ACTOR") * (JP!C:C<>"")),
+    list1, SORT(UNIQUE(actor_names_raw)),
+    
+    actor_ids_raw, FILTER(JP!A:A, (JP!B:B="ACTOR") * (JP!C:C<>"")),
+    speaker_codes, ARRAYFORMULA(IFERROR(REGEXEXTRACT(actor_ids_raw, "_([^_]+)$"), "")),
+    all_pairs, {actor_names_raw, speaker_codes},
+    
+    non_zero_pairs, FILTER(all_pairs, NOT(REGEXMATCH(INDEX(all_pairs, , 2), "_0$")) * (INDEX(all_pairs, , 2) <> "0") * (INDEX(all_pairs, , 2) <> "")),
+    unique_non_zero_pairs, UNIQUE(non_zero_pairs),
+    
+    query_data, QUERY(unique_non_zero_pairs, "SELECT Col1, COUNT(Col1) WHERE Col1 IS NOT NULL GROUP BY Col1"),
+    problem_names_list, IFERROR(FILTER(INDEX(query_data, , 1), INDEX(query_data, , 2) > 1), ""),
+    
+    list2_data, IFERROR(FILTER(unique_non_zero_pairs, REGEXMATCH(INDEX(unique_non_zero_pairs, , 1), "^"&TEXTJOIN("$|^", TRUE, problem_names_list)&"$")), ""),
+    list2_formatted, IFERROR(SORT(ARRAYFORMULA(INDEX(list2_data, , 1) & " , " & INDEX(list2_data, , 2)), 1, TRUE), {"(ไม่มีชื่อที่มีปัญหา)"}),
+    
+    {list1; ""; ""; "Unique ID"; ""; list2_formatted}
+)
