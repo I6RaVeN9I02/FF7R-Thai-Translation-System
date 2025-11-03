@@ -7,7 +7,7 @@
       translated_texts, 
          IF(jp_ids="", "",
             IF(jp_types = "ACTOR",
-               IFERROR(VLOOKUP(jp_texts, Names_JP_TH_EN!A:C, 3, FALSE), jp_texts),
+               IFERROR(VLOOKUP(jp_texts, Names_JP_TH_EN!A:L, 3, FALSE), jp_texts),
                IFERROR(VLOOKUP(jp_ids, Master_Data_Hub!A:F, 6, FALSE), jp_texts)
             )
          ),
