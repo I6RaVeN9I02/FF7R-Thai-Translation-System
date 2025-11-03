@@ -1,8 +1,8 @@
 ///////////////////////////     MAIN_BE_A1     ///////////////////////////
-=QUERY(Master_Data_Hub!A:D, "SELECT * WHERE A CONTAINS '_MAIN_'")
+=IFERROR(QUERY(Master_Data_Hub!A:D, "SELECT * WHERE A CONTAINS '_MAIN_'"))
 =======================================================================
 ///////////////////////////     MAIN_BE_E1     ///////////////////////////
-=ARRAYFORMULA(IF(A1:A<>"", "MM" & ROW(A1:A), ""))
+=ARRAYFORMULA(IF(A1:A<>"", "m0" & ROW(A1:A), ""))
 =======================================================================
 ///////////////////////////     MAIN_BE_F1     ///////////////////////////
 =ARRAYFORMULA(IF(A:A="", "", IFERROR(XLOOKUP(A:A, MAIN_WSP!E:E, MAIN_WSP!B:B, ""))))
