@@ -1,9 +1,42 @@
 ///////////////////////////     QST_BE_A1     ///////////////////////////
-=QUERY(Master_Data_Hub!A:D, "SELECT * WHERE A CONTAINS '_QST_'")
+=IFERROR(QUERY(Master_Data_Hub!A:D, "SELECT * WHERE A CONTAINS '_QST_'"))
 =======================================================================
 ///////////////////////////     QST_BE_E1     ///////////////////////////
-=ARRAYFORMULA(IF(A1:A<>"", "QQ" & ROW(A1:A), ""))
+=ARRAYFORMULA(
+  IF(A:A="",,
+    "q" & IFERROR(REGEXEXTRACT(A:A, "_QST_(\d{2})_"), "XX") & "-" & 
+    TEXT(
+      COUNTIFS(
+        REGEXEXTRACT(A:A, "_QST_(\d{2})_"), 
+        REGEXEXTRACT(A:A, "_QST_(\d{2})_"), 
+        ROW(A:A), 
+        "<=" & ROW(A:A)
+      ), 
+      "00"
+    )
+  )
+)
 =======================================================================
 ///////////////////////////     QST_BE_F1     ///////////////////////////
-=ARRAYFORMULA(IF(A:A="", "", IFERROR(XLOOKUP(A:A, QST_WSP!E:E, QST_WSP!B:B, ""))))
+=LET(
+    sheet_list, FILTER(H2:H20, H2:H20<>""),
+    
+    header, {"id_placeholder", "text_placeholder"},
+    
+    combined_data, REDUCE(header, sheet_list, LAMBDA(accumulator, sheet,
+        LET(
+            current_data, IFERROR(
+                FILTER(
+                    {INDIRECT("'"&sheet&"'!E:E"), INDIRECT("'"&sheet&"'!B:B")},
+                    INDIRECT("'"&sheet&"'!E:E") <> ""
+                )
+            ),
+            IF(ISERROR(current_data), accumulator, VSTACK(accumulator, current_data))
+        )
+    )),
+    
+    virtual_table, FILTER(combined_data, INDEX(combined_data, 0, 1) <> "id_placeholder"),
+
+    ARRAYFORMULA(IF(A:A="", "", IFERROR(XLOOKUP(A:A, INDEX(virtual_table,,1), INDEX(virtual_table,,2), ""))))
+)
 =======================================================================
