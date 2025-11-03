@@ -1,5 +1,5 @@
 ///////////////////////////      NPC_BE_A1      ///////////////////////////
-=QUERY(Master_Data_Hub!A:D, "SELECT * WHERE A CONTAINS '_NPC_'")
+=IFERROR(QUERY(Master_Data_Hub!A:D, "SELECT * WHERE A CONTAINS '_NPC_'"))
 =======================================================================
 ///////////////////////////      NPC_BE_E1      ///////////////////////////
 =ARRAYFORMULA(IF(A1:A<>"", "NN" & ROW(A1:A), ""))
