@@ -1,0 +1,17 @@
+=LET(
+    ControlCell, Dashboard!B1,
+    HubURL, "https://docs.google.com/spreadsheets/d/1RG2dyY6o4DEwYDZrVANDrB1ixUvcJpiy02e7o62bUWc",
+    
+    IF(ControlCell="", "กรุณาป้อนรหัสใน Dashboard!B1",
+        IF(ControlCell="99-RES",
+            QUERY(
+                IMPORTRANGE(HubURL, "RESIDENT_JP!A:D"), 
+                "SELECT Col2, Col3, Col4"
+            ),
+            QUERY(
+                IMPORTRANGE(HubURL, "JP!A:D"), 
+                "SELECT Col2, Col3, Col4 WHERE Col1 = '" & ControlCell & "'"
+            )
+        )
+    )
+)
