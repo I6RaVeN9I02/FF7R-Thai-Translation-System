@@ -1,0 +1,76 @@
+/**
+ * =============================================================
+ * File: Unified_Scanner_V1_0.gs
+ * (Project "Library" - V1.0 "Unified")
+ *
+ * (สแกนเนอร์ "ส่วนกลาง" ที่เป็นมาตรฐานสูงสุดของโปรเจกต์)
+ *
+ * 1. พยายามสแกนด้วย V0.11 (Header Scan) ก่อน (มาตรฐาน QST)
+ * 2. หากล้มเหลว จะสแกนด้วย V0.7 (Regex Scan) เป็น Fallback (เวทย์มนต์ MAIN)
+ * =============================================================
+ */
+function findV2Boundaries_V1_0_UNIFIED(sheet) {
+  const data = sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).getValues();
+  
+  // --- 1. พยายามสแกนด้วย V0.11 (Header Scan) ---
+  const HEADER_TH = "การแปลไทย (B)";
+  const HEADER_ID = "IDนำทางกำกับ (C)";
+  const HEADER_NOTES = "หมายเหตุ (D)";
+  const HEADER_FID = "Full ID (H)";
+
+  for (let i = 0; i < 10 && i < data.length; i++) {
+    const row = data[i];
+    const thColIdx = row.indexOf(HEADER_TH);
+    
+    if (thColIdx !== -1) {
+      // (V0.11) พบ Header "B" ... ถือว่าสำเร็จ
+      const idColIdx = row.indexOf(HEADER_ID);
+      const notesColIdx = row.indexOf(HEADER_NOTES);
+      const fullIdColIdx = row.indexOf(HEADER_FID);
+      
+      Logger.log(`[V1.0-UNIFIED] สแกนสำเร็จ (โหมด: HEADER)\nTH=${thColIdx}, ID=${idColIdx}, Notes=${notesColIdx}, FID=${fullIdColIdx}`);
+      
+      return { 
+        thColIdx, idColIdx, notesColIdx, fullIdColIdx, 
+        data, 
+        headerRowIndex: i, // (ระบุว่า Header อยู่แถวไหน)
+        scanMode: "HEADER" 
+      };
+    }
+  }
+
+  // --- 2. (Fallback) หาก V0.11 ล้มเหลว... พยายามสแกนด้วย V0.7 (Regex Scan) ---
+  Logger.log(`[V1.0-UNIFIED] ไม่พบ Header (B)... เปลี่ยนไปสแกนโหมด REGEX (V0.7)`);
+  
+  const idRegex = /^(m|q|n|e)\d+/i; // (เวทย์มนต์ V0.7)
+  
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    if (row.every(cell => cell === "")) continue; 
+    
+    for (let j = 0; j < row.length; j++) {
+      if (idRegex.test(row[j])) {
+        // (V0.7) พบ "สมอ" (Anchor) ... สันนิษฐานพิกัด
+        const idColIdx = j;
+        const thColIdx = j - 1;
+        
+        if (thColIdx < 0) continue; // (ตกขอบซ้าย)
+        
+        const notesColIdx = j + 1;
+        
+        Logger.log(`[V1.0-UNIFIED] สแกนสำเร็จ (โหมด: REGEX)\nTH=${thColIdx}, ID=${idColIdx}, Notes=${notesColIdx}`);
+        
+        return {
+          thColIdx, idColIdx, notesColIdx, 
+          fullIdColIdx: -1,     // (V0.7 ไม่รู้จัก H)
+          data, 
+          headerRowIndex: -1, // (ระบุว่าไม่มี Header)
+          scanMode: "REGEX"
+        };
+      }
+    }
+  }
+  
+  Logger.log(`[V1.0-UNIFIED] สแกนล้มเหลวทั้ง 2 โหมด`);
+  return null; // ล้มเหลวทั้งหมด
+}
