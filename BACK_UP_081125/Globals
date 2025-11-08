@@ -1,0 +1,106 @@
+/**
+ * =============================================================
+ * File: Globals.gs (Library Version - "Translation Engine")
+ * (สถานะ: V1.2 "Formula Migrator")
+ *
+ * V1.2 (Changelog):
+ * - [กู้คืน] สร้างเนื้อหา V1.1 ที่หายไป (จากการอนุมาน)
+ * - [ผสาน] เพิ่ม FORMULA_MIGRATOR_SOURCE_ID
+ *
+ * V1.1 (Changelog - ที่อนุมานขึ้น):
+ * - สร้างค่าคงที่สำหรับ WTP V3 Modules (MAIN, QST, NPC, ETC)
+ * - สร้างค่าคงที่สำหรับ Project Sherlock
+ * =============================================================
+ */
+
+// -------------------------------------------
+// (V1.2) รหัส "คลังพิมพ์เขียวสูตรส่วนกลาง"
+// -------------------------------------------
+const FORMULA_MIGRATOR_SOURCE_ID = "1X0J4SRt38hIwMKeTzM1u0LjEKaYD8lhUncsiar4Qzt8";
+
+
+// -------------------------------------------
+// (V1.1 - สร้างขึ้นใหม่) ค่าคงที่ของระบบ
+// -------------------------------------------
+
+// --- (ส่วนที่ 1) ค่าคงที่ที่ใช้ร่วมกัน (WTP & Sherlock) ---
+const SHEET_NAMES = {
+  // 1.1: ชีตข้อมูลดิบ (Raw Data)
+  RAW_JP_SHEET_NAME:   "RAW_JP",
+  RAW_ENJP_SHEET_NAME: "RAW_ENJP",
+  RAW_US_SHEET_NAME:   "RAW_US",
+
+  // 1.2: ชีตข้อมูลชื่อ (Actor Names)
+  V3_NAMES_DICT:     "Names_JP_TH_EN", // (WTP ใช้อ่าน)
+  TARGET_SHEET_NAME: "Names_JP_TH_EN", // (Sherlock ใช้เขียน)
+
+  // 1.3: ชีตเป้าหมายหลัก WTP V3
+  V3_TARGET_SHEET:   "MAIN_WSP_V3",  // (ของ MAIN)
+  V3_QST_TARGET_COMBINED: "QST_WSP_V3", // (ของ QST โหมด 1)
+  V3_NPC_TARGET:     "NPC_WSP_V3",
+  V3_ETC_TARGET:     "ETC_WSP_V3",
+  V3_QST_MISC_SHEET: "QST_MISC",     // (ของ QST โหมด 2)
+  
+  // 1.4: ชีตระบบ Sherlock
+  TEMP_CASE_FILES:     "Sherlock_Case_Files",
+  TEMP_JP_INDEX:       "Sherlock_Temp_JP",
+  TEMP_US_EVIDENCE:    "Sherlock_Temp_US",
+  TEMP_ENJP_EVIDENCE:  "Sherlock_Temp_ENJP",
+  AUDIT_SHEET_NAME:    "Sherlock_Audit"
+};
+
+// --- (ส่วนที่ 2) ค่าคงที่สำหรับ WTP V3 Module: QST ---
+const QST_CONFIG = {
+  // 2.1: ตัวเลข (อาเรีย "เดา" ค่าเหล่านี้)
+  V3_QST_MAX_COUNT: 20,              // (จำนวน Qx_WSP สูงสุด)
+  V3_QST_SMART_MAX_SHEETS: 10,       // (จำนวน QST_x_WSP สูงสุด)
+  V3_QST_SMART_SPLIT_THRESHOLD: 1200,// (จำนวนแถวสูงสุดก่อนแบ่ง)
+  V3_QST_SMART_SPLIT_MINIMUM: 100,  // (จำนวนแถวขั้นต่ำที่จะแยกชีต)
+
+  // 2.2: ชื่อนำหน้า/ต่อท้าย (อาเรีย "เดา" ค่าเหล่านี้)
+  V3_QST_MODE2_PREFIX: "Q",
+  V3_QST_MODE2_SUFFIX: "_WSP",
+  V3_QST_SMART_PREFIX: "QST_",
+  V3_QST_SMART_SUFFIX: "_WSP"
+};
+
+
+// --- (ส่วนที่ 3) ทำให้ตัวแปร "Global" ใช้งานได้ (ห้ามแก้ไขส่วนนี้) ---
+// (แปลงค่าจาก Object ด้านบน ให้เป็น Global Scopes)
+
+// 3.1: WTP & Sherlock Shared
+const RAW_JP_SHEET_NAME   = SHEET_NAMES.RAW_JP_SHEET_NAME;
+const RAW_ENJP_SHEET_NAME = SHEET_NAMES.RAW_ENJP_SHEET_NAME;
+const RAW_US_SHEET_NAME   = SHEET_NAMES.RAW_US_SHEET_NAME;
+const V3_NAMES_DICT       = SHEET_NAMES.V3_NAMES_DICT;
+const TARGET_SHEET_NAME   = SHEET_NAMES.TARGET_SHEET_NAME;
+
+// 3.2: WTP Modules
+const V3_TARGET_SHEET   = SHEET_NAMES.V3_TARGET_SHEET;
+const V3_QST_TARGET_COMBINED = SHEET_NAMES.V3_QST_TARGET_COMBINED;
+const V3_NPC_TARGET     = SHEET_NAMES.V3_NPC_TARGET;
+const V3_ETC_TARGET     = SHEET_NAMES.V3_ETC_TARGET;
+const V3_QST_MISC_SHEET = SHEET_NAMES.V3_QST_MISC_SHEET;
+
+// 3.3: Sherlock
+const TEMP_CASE_FILES     = SHEET_NAMES.TEMP_CASE_FILES;
+const TEMP_JP_INDEX       = SHEET_NAMES.TEMP_JP_INDEX;
+const TEMP_US_EVIDENCE    = SHEET_NAMES.TEMP_US_EVIDENCE;
+const TEMP_ENJP_EVIDENCE  = SHEET_NAMES.TEMP_ENJP_EVIDENCE;
+const AUDIT_SHEET_NAME    = SHEET_NAMES.AUDIT_SHEET_NAME;
+
+// 3.4: QST Config
+const V3_QST_MAX_COUNT = QST_CONFIG.V3_QST_MAX_COUNT;
+const V3_QST_MODE2_PREFIX = QST_CONFIG.V3_QST_MODE2_PREFIX;
+const V3_QST_MODE2_SUFFIX = QST_CONFIG.V3_QST_MODE2_SUFFIX;
+const V3_QST_SMART_MAX_SHEETS = QST_CONFIG.V3_QST_SMART_MAX_SHEETS;
+const V3_QST_SMART_PREFIX = QST_CONFIG.V3_QST_SMART_PREFIX;
+const V3_QST_SMART_SUFFIX = QST_CONFIG.V3_QST_SMART_SUFFIX;
+const V3_QST_SMART_SPLIT_THRESHOLD = QST_CONFIG.V3_QST_SMART_SPLIT_THRESHOLD;
+const V3_QST_SMART_SPLIT_MINIMUM = QST_CONFIG.V3_QST_SMART_SPLIT_MINIMUM;
+
+
+// --- (ส่วนที่ 4) ค่าคงที่อื่นๆ ที่ยังไม่ถูกใช้งาน (ถ้ามี) ---
+// (เช่น COL_IN, LIFEBOAT_CONFIG ที่ตอนนี้ยังว่างอยู่)
+const COL_IN = {};
+const LIFEBOAT_CONFIG = {};
