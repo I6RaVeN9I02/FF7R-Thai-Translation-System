@@ -1,0 +1,138 @@
+/**
+ * =============================================================
+ * File: Formula_Migrator.gs (Library Version - "Translation Engine")
+ * (สถานะ: V1.0 "Engine")
+ *
+ * นี่คือ "เครื่องยนต์ฉีดสูตร"
+ *
+ * V1.0 (Changelog):
+ * - สร้าง "เครื่องยนต์" ที่อ่าน "คลังพิมพ์เขียวส่วนกลาง"
+ * - สร้าง "ฟังก์ชันฉีดสูตร" (runFormulaInjection)
+ * =============================================================
+ */
+
+/**
+ * -------------------------------------------
+ * ฟังก์ชันภายใน (Internal)
+ * -------------------------------------------
+ */
+
+/**
+ * (V1.0) อ่าน "คลังพิมพ์เขียวส่วนกลาง" และสร้างแผนที่สูตร
+ * นี่คือ "หัวใจ" ของการรวมศูนย์ค่ะ
+ */
+function getCentralFormulaMap_() {
+  
+  // 1. "เปิด" คลังพิมพ์เขียวส่วนกลาง (โดยใช้รหัสจาก Globals.gs)
+  if (typeof FORMULA_MIGRATOR_SOURCE_ID === 'undefined') {
+    Logger.log('FORMULA_MIGRATOR_SOURCE_ID ไม่ได้ถูกตั้งค่าใน Globals.gs');
+    throw new Error('FORMULA_MIGRATOR_SOURCE_ID ไม่ได้ถูกตั้งค่าใน Globals.gs');
+  }
+  
+  const configSS = SpreadsheetApp.openById(FORMULA_MIGRATOR_SOURCE_ID);
+  
+  // (อ่านชีต "Formula" ตามที่นายท่านตั้งชื่อไว้)
+  const blueprintSheet = configSS.getSheetByName("Formula"); 
+  if (!blueprintSheet) {
+    Logger.log('ไม่พบชีตย่อย "Formula" ในคลังพิมพ์เขียว');
+    throw new Error('ไม่พบชีตย่อย "Formula" ในคลังพิมพ์เขียว');
+  }
+  
+  // 2. อ่านข้อมูล (เริ่มอ่านจากแถว 4 ที่เป็น Header ของเรา)
+  // (getRange(แถวเริ่มต้น, คอลัมน์เริ่มต้น, จำนวนแถว, จำนวนคอลัมน์))
+  const data = blueprintSheet.getRange(4, 1, blueprintSheet.getLastRow() - 3, 6).getValues(); 
+  
+  // 3. สร้างแผนที่สูตร (ตามโครงสร้าง A:F ที่เราออกแบบ)
+  const map = new Map();
+  
+  // (ข้ามแถวแรกที่เป็น Header (A4:F4) ที่เราอ่านมา)
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    
+    // (อ่านตามโครงสร้าง A:F)
+    const key = row[0];       // A: FORMULA_KEY
+    const targetSheet = row[1]; // B: TARGET_SHEET_NAME
+    const targetCol = row[2];   // C: TARGET_COLUMN_LETTER
+    const startRow = row[3];    // D: START_ROW
+    const notes = row[4];     // E: NOTES
+    const template = row[5];  // F: FORMULA_TEMPLATE
+    
+    // (ตรวจสอบว่าข้อมูลครบถ้วนหรือไม่)
+    if (key && targetSheet && targetCol && startRow && template) {
+      
+      // (ทำความสะอาด ' ที่นำหน้าสูตรออก)
+      const cleanTemplate = template.startsWith("'") ? template.substring(1) : template;
+      
+      // (เก็บ "ชุดคำสั่ง" ทั้งหมดไว้ในแผนที่)
+      map.set(key, {
+        targetSheet: targetSheet,
+        targetCol: targetCol,
+        startRow: parseInt(startRow),
+        template: cleanTemplate
+      });
+    }
+  }
+  Logger.log(`[Formula Migrator] สร้างแผนที่สูตรสำเร็จ, พบ ${map.size} สูตร`);
+  return map;
+}
+
+
+/**
+ * -------------------------------------------
+ * ฟังก์ชัน API (สำหรับ Master_Controller เรียกใช้)
+ * -------------------------------------------
+ */
+
+/**
+ * (V1.0) "ฟังก์ชันฉีดสูตร"
+ * (ss = ชีต Template V3 ที่ผู้ใช้กำลังเปิดอยู่)
+ * (formulaKey = รหัสสูตรที่ผู้ใช้เลือก เช่น "QST_V1_FORMULA")
+ */
+function runFormulaInjection(ss, formulaKey) {
+  Logger.log(`[Formula Migrator] รับคำสั่งฉีดสูตร: ${formulaKey}`);
+  
+  try {
+    // 1. ไปดึง "พิมพ์เขียว" มาจากคลังส่วนกลาง
+    const formulaMap = getCentralFormulaMap_(); 
+    const blueprint = formulaMap.get(formulaKey);
+
+    if (!blueprint) {
+      Logger.log(`ไม่พบพิมพ์เขียวสูตร: ${formulaKey}`);
+      return { success: false, error: "ไม่พบพิมพ์เขียวสูตร: " + formulaKey };
+    }
+
+    // 2. ค้นหา "ชีตเป้าหมาย" (ใน Template V3 ของผู้ใช้)
+    const targetSheet = ss.getSheetByName(blueprint.targetSheet);
+    if (!targetSheet) {
+      Logger.log(`ไม่พบชีตเป้าหมาย: ${blueprint.targetSheet}`);
+      return { success: false, error: "ไม่พบชีตเป้าหมาย: " + blueprint.targetSheet };
+    }
+    
+    const lastDataRow = targetSheet.getLastRow();
+    
+    // (ตรวจสอบว่ามีข้อมูลให้ฉีดสูตรหรือไม่)
+    if (lastDataRow < blueprint.startRow) {
+      Logger.log(`แถวสุดท้าย (${lastDataRow}) น้อยกว่าแถวเริ่มต้น (${blueprint.startRow})`);
+      return { success: false, error: `ชีตเป้าหมาย "${blueprint.targetSheet}" ไม่มีข้อมูลให้ฉีดสูตร (แถวสุดท้าย: ${lastDataRow})` };
+    }
+    
+    const numRowsToFill = (lastDataRow - blueprint.startRow) + 1;
+
+    // 3. "ฉีดสูตร" (Lazy Script)
+    // (สร้างช่วงเป้าหมาย เช่น "B2:B500")
+    const targetRangeNotation = `${blueprint.targetCol}${blueprint.startRow}:${blueprint.targetCol}${lastDataRow}`;
+    const targetRange = targetSheet.getRange(targetRangeNotation); 
+    
+    Logger.log(`กำลังฉีดสูตร "${formulaKey}" ลงใน "${blueprint.targetSheet}!${targetRangeNotation}"`);
+    
+    // (ใช้ setFormula() เพื่อให้สูตรปรับตัวเองอัตโนมัติ เช่น A2 -> A3, A4)
+    targetRange.setFormula(blueprint.template); 
+
+    return { success: true, message: `ฉีดสูตร "${formulaKey}" (จำนวน ${numRowsToFill} แถว) ลงในชีต "${blueprint.targetSheet}" สำเร็จ!` };
+
+  } catch (e) {
+    Logger.log(`[Formula Migrator] ล้มเหลว: ${e.message}`);
+    Logger.log(e.stack);
+    return { success: false, error: e.message };
+  }
+}
