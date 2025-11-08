@@ -1,0 +1,149 @@
+/**
+ * =============================================================
+ * File: Master_Controller.gs (Library Version - "Translation Engine")
+ * (สถานะ: V1.4 "Formula Migrator")
+ *
+ * V1.4 (Changelog):
+ * - [ผสาน] เพิ่ม API ที่ 5: Formula Migrator (`runFormulaInjectionByKey`)
+ *
+ * V1.3 (Changelog):
+ * - [เพิ่ม] สถาปัตยกรรม 2-Call
+ * - [เพิ่ม] API ที่ 4: `runMainPreFlight`
+ *
+ * V1.2 (Changelog):
+ * - [FIX] แก้ไขการ "ห่อผลลัพธ์ซ้ำซ้อน" (Double Wrapping) ของ Sherlock
+ * =============================================================
+ */
+
+/**
+ * ===========================================
+ * "API" ที่ 1: ตัวควบคุม Build All (ไม่โต้ตอบ)
+ * ===========================================
+ */
+function runFullWorkspace(ss) {
+  Logger.log(`[Library API] เริ่ม "Build All" (โหมด Default)...`);
+  
+  try {
+    // รัน MAIN (ด้วยโหมด 1)
+    const mainResult = buildMainWsp(ss, 1);
+    Logger.log(`[Library API] MAIN Build: ${mainResult.success ? 'สำเร็จ' : 'ล้มเหลว'}`);
+    
+    // รัน QST (ด้วยโหมด 1)
+    const qstResult = buildQstWsp(ss, 1);
+    Logger.log(`[Library API] QST Build: ${qstResult.success ? 'สำเร็จ' : 'ล้มเหลว'}`);
+
+    // รัน NPC (ไม่มีโหมด)
+    const npcResult = buildNpcWsp(ss);
+    Logger.log(`[Library API] NPC Build: ${npcResult.success ? 'สำเร็จ' : 'ล้มเหลว'}`);
+
+    // รัน ETC (ไม่มีโหมด)
+    const etcResult = buildEtcWsp(ss);
+    Logger.log(`[Library API] ETC Build: ${etcResult.success ? 'สำเร็จ' : 'ล้มเหลว'}`);
+
+    Logger.log(`[Library API] "Build All" (โหมด Default) เสร็จสมบูรณ์!`);
+    
+    // คืนค่าผลลัพธ์รวม
+    return {
+      success: true,
+      results: {
+        main: mainResult,
+        qst: qstResult,
+        npc: npcResult,
+        etc: etcResult
+      }
+    };
+    
+  } catch (e) {
+    Logger.log(`[Library API] "Build All" ล้มเหลว: ${e.message}`);
+    return { success: false, error: e.message };
+  }
+}
+
+
+/**
+ * ===========================================
+ * "API" ที่ 2: ตัวควบคุมแบบโต้ตอบ (Interactive)
+ * (ฟังก์ชันเหล่านี้จะถูกเรียกจากเมนู "Build ONLY...")
+ * ===========================================
+ */
+function runMainBuild(ss, splitInput) {
+  Logger.log(`[Library API] รับคำสั่งรัน MAIN (Split: ${splitInput})`);
+  return buildMainWsp(ss, splitInput); // (นี่คือ Call 2)
+}
+
+function runQstBuild(ss, splitMode) {
+  Logger.log(`[Library API] รับคำสั่งรัน QST (Mode: ${splitMode})`);
+  return buildQstWsp(ss, splitMode);
+}
+
+/**
+ * (API สำหรับเมนู NPC)
+ */
+function runNpcBuild(ss) {
+  Logger.log(`[Library API] รับคำสั่งรัน NPC`);
+  return buildNpcWsp(ss);
+}
+function runEtcBuild(ss) {
+  Logger.log(`[Library API] รับคำสั่งรัน ETC`);
+  return buildEtcWsp(ss);
+}
+
+/**
+ * ===========================================
+ * "API" ที่ 3: Project Sherlock (V1.1 Added)
+ * ===========================================
+ */
+function runSherlockBuild(ss) {
+  Logger.log('Library API 3: "runSherlockBuild" ถูกเรียกใช้');
+  try {
+    // [FIX V1.2] เรียกฟังก์ชันหลัก และ "ส่งผลลัพธ์กลับไปตรงๆ"
+    // (ลบการสร้างตัวแปร resultMessage และการห่อ { success: true } ออก)
+    return sherlock_runFullProcess_V7_4_CF_Flex(ss);
+  } catch (e) {
+    Logger.log(`Library API 3: เกิดข้อผิดพลาด: ${e}`);
+    return { success: false, error: e.message };
+  }
+}
+
+function runSherlockCleanup(ss) {
+  Logger.log('Library API 3: "runSherlockCleanup" ถูกเรียกใช้');
+  try {
+    // [FIX V1.2] เรียกฟังก์ชันล้างข้อมูล และ "ส่งผลลัพธ์กลับไปตรงๆ"
+    return sherlock_cleanupPermanent(ss);
+  } catch (e) {
+    Logger.log(`Library API 3: เกิดข้อผิดพลาด: ${e}`);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * ===========================================
+ * "API" ที่ 4: Pre-Flight (V1.3 Added)
+ * (นี่คือ API สำหรับ "Call 1" ของเรา)
+ * ===========================================
+ */
+function runMainPreFlight(ss) {
+  Logger.log('[Library API] รับคำสั่ง "Call 1: Main Pre-Flight"...');
+  try {
+    return getMainPreFlightInfo(ss);
+  } catch (e) {
+    Logger.log(`[Library API] "Call 1" ล้มเหลว: ${e.message}`);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * ===========================================
+ * "API" ที่ 5: Formula Migrator (V1.4 Added)
+ * ===========================================
+ */
+function runFormulaInjectionByKey(ss, formulaKey) {
+  Logger.log(`Library API 5: "runFormulaInjectionByKey" ถูกเรียกใช้ (Key: ${formulaKey})`);
+  try {
+    // (เรียก "เครื่องยนต์" ที่แท้จริง ที่อยู่ใน Formula_Migrator.gs)
+    return runFormulaInjection(ss, formulaKey); 
+  } catch (e) {
+    Logger.log(`Library API 5: เกิดข้อผิดพลาด: ${e}`);
+    return { success: false, error: e.message };
+  }
+}
