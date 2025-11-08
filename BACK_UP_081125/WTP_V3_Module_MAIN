@@ -1,0 +1,237 @@
+/**
+ * =============================================================
+ * File: WTP_V3_Module_MAIN.gs (Library Version)
+ * (Beta V0.9 "Hybrid" - Unified Standard)
+ *
+ * V0.9_Lib-1 (Changelog):
+ * - [ย้าย] มาเป็นไลบรารี "Translation Engine"
+ * - [ผ่าตัด] ฟังก์ชัน `buildMainWsp_Beta_V0_9` ถูกเปลี่ยนชื่อเป็น `buildMainWsp`
+ * - [ผ่าตัด] `SpreadsheetApp.getActiveSpreadsheet()` และ `getUi()` ถูกลบออก
+ * - [ผ่าตัด] ฟังก์ชันรับ `ss` (Spreadsheet) และ `splitInput` (กฎการแบ่ง) เป็นพารามิเตอร์
+ * - [ผ่าตัด] `ui.alert` ทั้งหมดถูกเปลี่ยนเป็น `Logger.log`
+ * - [ผ่าตัด] `ui.prompt` สำหรับการแบ่งชีต ถูกถอดออกโดยสมบูรณ์
+ * =============================================================
+ */
+
+function buildMainWsp(ss, splitInput = 1) { 
+  Logger.log(`[MAIN Lib] เริ่มสร้างโมดูล MAIN... (ได้รับ SplitRule = ${splitInput})`);
+
+  try {
+    // --- Phase 1: [V0.9] "Super Scanner" ---
+    
+    const lifeboatMap = new Map();
+    const anchorMap = new Map();   
+    
+    const allPossibleSheets = [V3_TARGET_SHEET];
+    for (let i = 1; i <= 10; i++) { 
+      allPossibleSheets.push("MAIN_" + String(i).padStart(2, "0"));
+    }
+
+    for (const sheetName of allPossibleSheets) {
+      const v2Sheet = ss.getSheetByName(sheetName);
+      
+      if (v2Sheet && v2Sheet.getLastRow() > 0) {
+        
+        const v2Boundaries = findV2Boundaries_V1_0_UNIFIED(v2Sheet); 
+
+        if (v2Boundaries) {
+          const { 
+            thColIdx, idColIdx, notesColIdx, fullIdColIdx, 
+            data, headerRowIndex, scanMode 
+          } = v2Boundaries;
+          
+          const startRow = (scanMode === "HEADER") ? headerRowIndex + 1 : 0;
+          
+          for (let i = startRow; i < data.length; i++) { 
+            const row = data[i];
+            
+            if (row.length <= thColIdx) continue; 
+            if (idColIdx !== -1 && row.length <= idColIdx) continue;
+            
+            const th = row[thColIdx] || "";
+            const notes = (notesColIdx !== -1 && row.length > notesColIdx) ? (row[notesColIdx] || "") : "";
+            
+            if (th || notes) {
+              if (idColIdx !== -1) {
+                const idSpecial = row[idColIdx];
+                if (idSpecial) {
+                  lifeboatMap.set(idSpecial, { th: th, notes: notes });
+                }
+              }
+              if (fullIdColIdx !== -1 && row.length > fullIdColIdx) {
+                const fullId = row[fullIdColIdx];
+                if (fullId) {
+                  anchorMap.set(fullId, { th: th, notes: notes });
+                }
+              }
+            }
+          }
+        }
+      }
+    } 
+    Logger.log(`[MAIN Lib] "Super Scanner" พบข้อมูล (C) ${lifeboatMap.size} รายการ และ (H) ${anchorMap.size} รายการ`);
+    
+
+    // --- Phase 2: Load Raw Data (V0.8) ---
+    const namesSheet = ss.getSheetByName(V3_NAMES_DICT);
+    const namesData = namesSheet.getRange("A:C").getValues();
+    const speakerNamesMap = new Map(); 
+    for (const row of namesData) {
+      if (row[0]) {
+        speakerNamesMap.set(row[0], { us: row[1], enjp: row[2] });
+      }
+    }
+    const enjpSheet = ss.getSheetByName(V3_RAW_ENJP);
+    const enjpData = enjpSheet.getRange("A:C").getValues();
+    const enjpPivotMap = new Map();
+    for (const row of enjpData) {
+      const fullId = row[0]; const type = row[1]; const text = row[2];
+      if (!fullId) continue;
+      if (!enjpPivotMap.has(fullId)) {
+        enjpPivotMap.set(fullId, { actor: null, dialogue: null });
+      }
+      let group = enjpPivotMap.get(fullId);
+      if (type === "ACTOR") { group.actor = text; } 
+      else { group.dialogue = text; }
+    }
+    const jpSheet = ss.getSheetByName(V3_RAW_JP);
+    const jpData = jpSheet.getRange("A:C").getValues(); 
+    let dialogueGroups = new Map();
+    for (const row of jpData) {
+      const fullId = row[0]; const type = row[1]; const text = row[2];
+      if (!fullId) continue;
+      if (!dialogueGroups.has(fullId)) {
+        dialogueGroups.set(fullId, { fullId: fullId, actor: null, dialogue: null });
+      }
+      let group = dialogueGroups.get(fullId);
+      if (type === "ACTOR") { group.actor = text; } 
+      else { group.dialogue = text; }
+    }
+
+    // --- Phase 3: Build & Merge (V0.9 Hybrid-Key) ---
+    const output_MAIN = []; 
+    const header = [
+      ["ไอดีนำทาง (A)", "การแปลไทย (B)", "IDนำทางกำกับ (C)", "หมายเหตุ (D)", "Raw_JP (E)", "Raw_ENJP (F)", "ชื่อผู้พูด (G)", "Full ID (H)"]
+    ];
+    let specialIdCounter = 1; 
+    const mainGroups = Array.from(dialogueGroups.values())
+        .filter(g => g.fullId.includes("_MAIN_") && g.dialogue);
+    mainGroups.sort((a, b) => a.fullId.localeCompare(b.fullId));
+
+    for (const group of mainGroups) {
+      const fullId_H = group.fullId;
+      const jpText_E = group.dialogue;
+      const enjpGroup = enjpPivotMap.get(fullId_H) || { dialogue: "" };
+      const enjpText_F = enjpGroup.dialogue;
+      const speakerInfo = speakerNamesMap.get(group.actor) || { jp: group.actor, us: group.actor, enjp: null };
+      const enjpActor = speakerInfo.enjp || (enjpPivotMap.get(fullId_H) ? enjpPivotMap.get(fullId_H).actor : null) || speakerInfo.us;
+      const speakerNames_G = [speakerInfo.jp, speakerInfo.us, enjpActor].filter(Boolean).join(" / ");
+      const potentialId = "m" + String(specialIdCounter++).padStart(2, "0"); 
+      
+      const oldData = lifeboatMap.get(potentialId) || anchorMap.get(fullId_H) || { th: "", notes: "" };
+      const translation_B = oldData.th;
+      const notes_D = oldData.notes;
+      
+      const speakerName_Part1 = enjpActor || speakerInfo.us || speakerInfo.jp || "???"; 
+      const idCode_Part2 = fullId_H.slice(-3); 
+      const final_displayId_A = `${speakerName_Part1} , ${idCode_Part2} , ${potentialId}`;
+      const specialId_C = (translation_B || notes_D) ? potentialId : ""; 
+
+      output_MAIN.push([
+           final_displayId_A, translation_B, specialId_C, notes_D,
+           jpText_E, enjpText_F, speakerNames_G, fullId_H
+      ]);
+    }
+
+    // --- Phase 4: [V0.6 - Dual-Rule Split Decision] ---
+    // (ผ่าตัด `ui.prompt` ออก ... ใช้ `splitInput` ที่รับค่ามาแทน)
+    
+    const totalLines = output_MAIN.length; 
+    let splitCount = 1; 
+    let linesPerSheet = totalLines; 
+    
+    if (totalLines > 1200 && splitInput > 1) { 
+      // (ลบ `ui.prompt` ทั้งหมด)
+      // (ใช้ `splitInput` ที่รับมา)
+      if (splitInput <= 10) { 
+        // กฎ "หาร N ชิ้น"
+        splitCount = splitInput;
+        linesPerSheet = Math.ceil(totalLines / splitCount);
+      } else { 
+        // กฎ "ชิ้นละ N แถว"
+        linesPerSheet = splitInput;
+        splitCount = Math.ceil(totalLines / linesPerSheet);
+      }
+    }
+    
+    if (splitCount > 1) {
+      if (splitCount > 10) {
+        Logger.log(`[MAIN Lib] ข้อผิดพลาด: การตั้งค่านี้จะสร้าง ${splitCount} ชีต (เกิน 10) ... ยกเลิก`);
+        return; 
+      }
+      if (linesPerSheet < 600) {
+        Logger.log(`[MAIN Lib] คำเตือน: อนุมัติการแบ่ง < 600 แถว (${linesPerSheet} แถว)`);
+        // (ลบ `ui.alert` ที่เป็นการยืนยันออก ... ถือว่าอนุมัติแล้ว)
+      }
+    }
+    
+    const sheetConfigs = []; 
+    const sheetNamesWritten = []; 
+    if (splitCount >= 2) {
+      for (let i = 0; i < splitCount; i++) {
+        const sheetName = "MAIN_" + String(i + 1).padStart(2, "0"); 
+        const start = i * linesPerSheet;
+        const end = (i + 1) * linesPerSheet;
+        sheetConfigs.push({ sheetName: sheetName, data: output_MAIN.slice(start, end) });
+        sheetNamesWritten.push(sheetName);
+      }
+    } else {
+      sheetConfigs.push({ sheetName: V3_TARGET_SHEET, data: output_MAIN }); 
+      sheetNamesWritten.push(V3_TARGET_SHEET);
+    }
+    
+    // --- Phase 5: [V0.6 - Dynamic Write & Cleanup] ---
+    let totalRowsWritten = 0;
+    for (const config of sheetConfigs) {
+      let targetSheet = ss.getSheetByName(config.sheetName);
+      if (!targetSheet) {
+        targetSheet = ss.insertSheet(config.sheetName);
+      }
+      targetSheet.clear();
+      const fullOutput = header.concat(config.data);
+      targetSheet.getRange(4, 1, fullOutput.length, 8).setValues(fullOutput);
+      totalRowsWritten += config.data.length;
+    }
+    const allSheetsToCleanup = [V3_TARGET_SHEET]; 
+    for (let i = 1; i <= 10; i++) { 
+      allSheetsToCleanup.push("MAIN_" + String(i).padStart(2, "0")); 
+    }
+    for (const sheetName of allSheetsToCleanup) {
+      if (!sheetNamesWritten.includes(sheetName)) {
+        const oldSheet = ss.getSheetByName(sheetName);
+        if (oldSheet) {
+          ss.deleteSheet(oldSheet); 
+        }
+      }
+    }
+
+    Logger.log(`[MAIN Lib] โมดูล MAIN สร้างเสร็จสมบูรณ์!\n- สร้างข้อมูลนิ่ง ${totalRowsWritten} แถว\n- ลงใน ${sheetNamesWritten.length} ชีต (${sheetNamesWritten.join(', ')})\n- ผสานข้อมูลแปลเดิม (C) ${lifeboatMap.size} + (H) ${anchorMap.size} รายการ`);
+
+    // (คืนค่าผลลัพธ์ให้ตัวเรียกใช้ ... เผื่อใช้ในอนาคต)
+    return {
+      success: true,
+      rowsWritten: totalRowsWritten,
+      sheets: sheetNamesWritten,
+      cKeyCount: lifeboatMap.size,
+      hKeyCount: anchorMap.size
+    };
+
+  } catch (e) {
+    Logger.log(`[MAIN Lib] เกิดข้อผิดพลาดร้ายแรง: ${e.message}`);
+    // (คืนค่าผลลัพธ์แบบล้มเหลว)
+    return {
+      success: false,
+      error: e.message
+    };
+  }
+}
