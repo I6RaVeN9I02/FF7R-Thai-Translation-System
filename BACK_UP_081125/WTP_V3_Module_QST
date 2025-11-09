@@ -1,33 +1,33 @@
 /**
  * =============================================================
  * File: WTP_V3_Module_QST.gs (Library Version)
- * (Beta V0.4.1 "Unified")
+ * (สถานะ: V2.0 "Small Quest Hunter")
+ * (ณ: 2025-11-09 17:55)
  *
- * V0.4.1_Lib-1 (Changelog):
- * - [ย้าย] มาเป็นไลบรารี "Translation Engine"
- * - [ผ่าตัด] ฟังก์ชัน `buildQstWsp_Beta_V0_4_1` ถูกเปลี่ยนชื่อเป็น `buildQstWsp`
- * - [ผ่าตัด] `SpreadsheetApp.getActiveSpreadsheet()` และ `getUi()` ถูกลบออก
- * - [ผ่าตัด] ฟังก์ชันรับ `ss` (Spreadsheet) และ `splitMode` (กฎการแบ่ง 1/2/3) เป็นพารามิเตอร์
- * - [ผ่าตัด] `ui.alert` ทั้งหมดถูกเปลี่ยนเป็น `Logger.log`
- * - [ผ่าตัด] `ui.prompt` สำหรับการเลือกโหมด ถูกถอดออกโดยสมบูรณ์
+ * V2.0 "Small Quest Hunter" (Changelog):
+ * - [ผ่าตัดใหญ่] "รื้อ" ตรรกะการแบ่งโหมด 3 (V1.0 "ตัวแพ็ค 1200") ทิ้ง
+ * - [ติดตั้ง V2.0] เปลี่ยนเป็นตรรกะ "นักล่าเควสเล็ก"
+ * (อิงตาม `V3_QST_SMALL_QUEST_THRESHOLD` จาก Globals V1.3)
+ * - [FIX] แก้ไขให้โหมด 3 "รวม" เควสเล็กๆ ไว้ด้วยกัน
+ * - [FIX] แก้ไขให้โหมด 3 "เขียน" ข้อมูล MISC แยกต่างหาก (เหมือนโหมด 2)
+ *
+ * V1.0 "Stable Sort" (Changelog):
+ * - [ผ่าตัด] ถอน "ตรรกะการจัดเรียงที่พัง" (Stable Sort) ทั้ง 2 จุด
  * =============================================================
  */
 
 function buildQstWsp(ss, splitMode = 1) { 
-  Logger.log(`[QST Lib] เริ่มสร้างโมดูลเควส... (ได้รับ SplitMode = ${splitMode})`);
+  Logger.log(`[QST Lib] เริ่มสร้างโมดูลเควส (V2.0 "Small Quest Hunter")... (ได้รับ SplitMode = ${splitMode})`);
 
   try {
-    // --- Phase 1: [V0.3] การเลือกโหมดการทำงาน (Smart Menu) ---
-    // (ผ่าตัด `ui.prompt` ออกทั้งหมด ... ใช้ `splitMode` ที่รับค่ามาแทน)
-    
-    // (ตรวจสอบค่าที่รับมา ... หากผิดพลาด ให้ใช้โหมด 1)
+    // --- Phase 1: [V0.3] การเลือกโหมดการทำงาน ---
     if (isNaN(splitMode) || splitMode < 1 || splitMode > 3) {
       Logger.log(`[QST Lib] ได้รับ SplitMode ไม่ถูกต้อง (${splitMode}), ปรับเป็นโหมด 1`);
       splitMode = 1;
     }
 
-    // --- Phase 2: [V0.4.1] Super Scanner (เรียกใช้ V1.0 ส่วนกลาง) ---
-    
+    // --- Phase 2: [V0.4.1] Super Scanner ---
+    // (ส่วนนี้ V1.0 ทำงานได้ถูกต้องสมบูรณ์แล้ว ... คงไว้)
     const lifeboatMap = new Map(); 
     const anchorMap = new Map();   
     
@@ -46,7 +46,6 @@ function buildQstWsp(ss, splitMode = 1) {
       if (v2Sheet && v2Sheet.getLastRow() > 0) {
         
         const v2Boundaries = findV2Boundaries_V1_0_UNIFIED(v2Sheet); 
-
         if (v2Boundaries) {
           const { 
             thColIdx, idColIdx, notesColIdx, fullIdColIdx, 
@@ -86,7 +85,7 @@ function buildQstWsp(ss, splitMode = 1) {
 
     
     // --- Phase 3: Load & Group (V0.4n) ---
-    // (ตรรกะ V0.4n "คงไว้" 100% ไม่มีการแก้ไข)
+    // (ส่วนนี้ V1.0 ทำงานได้ถูกต้องสมบูรณ์แล้ว ... คงไว้)
     const namesSheet = ss.getSheetByName(V3_NAMES_DICT);
     const namesData = namesSheet.getRange("A:C").getValues();
     const speakerNamesMap = new Map(); 
@@ -132,31 +131,51 @@ function buildQstWsp(ss, splitMode = 1) {
     }
     const sortedQuestNumbers = Array.from(questGroupsMap.keys()).sort((a, b) => a.localeCompare(b));
     
-    // --- Phase 4: Build, Merge & [V0.4n Hybrid-Key] ---
-    // (ตรรกะ V0.4n "คงไว้" 100% ไม่มีการแก้ไข)
+    // --- Phase 4: Build, Merge & [V2.0 "Small Quest Hunter"] ---
+    
     const output_QST_Combined = []; 
     const sheetConfigs = []; 
     const sheetNamesWritten = []; 
     const header = [
       ["ไอดีนำทาง (A)", "การแปลไทย (B)", "IDนำทางกำกับ (C)", "หมายเหตุ (D)", "Raw_JP (E)", "Raw_ENJP (F)", "ชื่อผู้พูด (G)", "Full ID (H)"]
     ];
-    let smartSplitBucket = []; 
-    let smartSplitSheetCounter = 1; 
-
+    
+    // --- [V2.0] ตัวแปรใหม่สำหรับ "นักล่าเควสเล็ก" (โหมด 3) ---
+    let smartSplitBucket = [];         // ถังสะสม "เควสเล็ก"
+    let smartSplitBucket_BaseName = null; // ชื่อชีตของ "เควสแรก" ที่เริ่มสะสม
+    
     for (const questNumber of sortedQuestNumbers) {
       const questNumInt = parseInt(questNumber, 10); 
-      const sheetName_Mode2 = V3_QST_MODE2_PREFIX + questNumInt + V3_QST_MODE2_SUFFIX; 
+      const sheetName_Mode2 = V3_QST_MODE2_PREFIX + questNumInt + V3_QST_MODE2_SUFFIX; // (เช่น "Q1_WSP")
       const groupData = questGroupsMap.get(questNumber);
       const sheetOutputData_Mode2 = []; 
-      groupData.sort((a, b) => a.fullId.localeCompare(b.fullId));
+      
+      // [V1.0] "Stable Sort" (คงไว้)
+      // (ลบ .sort() ที่พังออก ... ใช้ "ลำดับทางกายภาพ")
+      Logger.log(`[QST Lib] "Stable Sort" (V1.0): กรองข้อมูลกลุ่ม ${questNumber} ได้ ${groupData.length} แถว (โดยไม่จัดเรียง FID)`);
+
       let lineCounter = 1; 
+
+      // --- [V2.0] "ตรรกะการตัดสินใจ" (Decision Logic) ---
+      // (เราจะ "ตัดสินใจ" ก่อน ... แล้วค่อย "สร้าง" ข้อมูล)
+      
+      let currentQuestIsSmall = false;
       if (splitMode === 3) {
-        if (smartSplitBucket.length > 0 && (smartSplitBucket.length + groupData.length > V3_QST_SMART_SPLIT_THRESHOLD)) {
-          const sheetName = V3_QST_SMART_PREFIX + String.fromCharCode(64 + smartSplitSheetCounter++) + V3_QST_SMART_SUFFIX;
-          sheetConfigs.push({ sheetName: sheetName, data: smartSplitBucket });
-          smartSplitBucket = []; 
+        // (เรียกใช้ "อะไหล่ V2.0" จาก Globals V1.3)
+        currentQuestIsSmall = groupData.length < V3_QST_SMALL_QUEST_THRESHOLD;
+        
+        if (!currentQuestIsSmall && smartSplitBucket.length > 0) {
+          // (ถ้าเจอ "เควสใหญ่" ... ให้ "ล้าง" ถังสะสมเควสเล็กที่เก็บไว้ก่อนหน้า)
+          Logger.log(`[QST V2.0] "นักล่าเควสเล็ก": ${questNumber} (ใหญ่) สั่งล้างถัง ${smartSplitBucket_BaseName} (${smartSplitBucket.length} แถว)`);
+          sheetConfigs.push({ sheetName: smartSplitBucket_BaseName, data: smartSplitBucket });
+          sheetNamesWritten.push(smartSplitBucket_BaseName);
+          smartSplitBucket = [];
+          smartSplitBucket_BaseName = null;
         }
       }
+      
+      // --- "การสร้างข้อมูล" (Data Generation) ---
+      // (ส่วนนี้เหมือนเดิม ... V1.0)
       for (const group of groupData) {
         const fullId_H = group.fullId; const jpText_E = group.dialogue;
         const enjpGroup = enjpPivotMap.get(fullId_H) || { dialogue: "" };
@@ -164,6 +183,10 @@ function buildQstWsp(ss, splitMode = 1) {
         const speakerInfo = speakerNamesMap.get(group.actor) || { jp: group.actor, us: group.actor, enjp: null };
         const enjpActor = speakerInfo.enjp || (enjpPivotMap.get(fullId_H) ? enjpPivotMap.get(fullId_H).actor : null) || speakerInfo.us;
         const speakerNames_G = [speakerInfo.jp, speakerInfo.us, enjpActor].filter(Boolean).join(" / ");
+        
+        // (จุดนี้สำคัญ)
+        // "ID นำทางกำกับ" (q01-01, q01-02) นี้
+        // บัดนี้ ถูกสร้างขึ้นตาม "ลำดับทางกายภาพ" ที่เสถียรแล้ว
         const potentialId = "q" + questNumInt + "-" + String(lineCounter++).padStart(2, "0");
         const oldData = lifeboatMap.get(potentialId) || anchorMap.get(fullId_H) || { th: "", notes: "" };
         const translation_B = oldData.th; const notes_D = oldData.notes;
@@ -175,21 +198,43 @@ function buildQstWsp(ss, splitMode = 1) {
              final_displayId_A, translation_B, specialId_C, notes_D,
              jpText_E, enjpText_F, speakerNames_G, fullId_H
         ];
-        output_QST_Combined.push(newRow); 
-        sheetOutputData_Mode2.push(newRow); 
+        output_QST_Combined.push(newRow); // (เพิ่มลง "ถังรวม" ... สำหรับโหมด 1)
+        sheetOutputData_Mode2.push(newRow); // (เพิ่มลง "ถังย่อย" ... สำหรับโหมด 2/3)
       }
+
+      // --- [V2.0] "การจัดเก็บ" (Storage Logic) ---
+
       if (splitMode === 2) {
+        // (โหมด 2: เขียนลงชีตของตัวเองทันที)
         sheetConfigs.push({ sheetName: sheetName_Mode2, data: sheetOutputData_Mode2 });
         sheetNamesWritten.push(sheetName_Mode2);
       }
+      
       if (splitMode === 3) {
-        smartSplitBucket = smartSplitBucket.concat(sheetOutputData_Mode2); 
+        // (โหมด 3: "นักล่าเควสเล็ก" V2.0)
+        if (currentQuestIsSmall) {
+          // (ถ้า "เล็ก")
+          smartSplitBucket = smartSplitBucket.concat(sheetOutputData_Mode2);
+          if (smartSplitBucket_BaseName === null) {
+            smartSplitBucket_BaseName = sheetName_Mode2; // (ใช้ชื่อเควสแรกที่เริ่มสะสม)
+          }
+          Logger.log(`[QST V2.0] ${questNumber} (เล็ก) ถูก "เพิ่ม" ในถัง ${smartSplitBucket_BaseName} (รวม ${smartSplitBucket.length} แถว)`);
+        } else {
+          // (ถ้า "ใหญ่")
+          // (เรา "ล้าง" ถังสะสมไปแล้วใน "ตรรกะการตัดสินใจ" ด้านบน)
+          // (ดังนั้น เราแค่ "เขียน" เควสใหญ่ตัวนี้ลงไป)
+          sheetConfigs.push({ sheetName: sheetName_Mode2, data: sheetOutputData_Mode2 });
+          sheetNamesWritten.push(sheetName_Mode2);
+          Logger.log(`[QST V2.0] ${questNumber} (ใหญ่) ถูก "เขียน" ลงชีต ${sheetName_Mode2} (${sheetOutputData_Mode2.length} แถว)`);
+        }
       }
     }
     
-    // 4.4: ประมวลผลกลุ่ม "MISC" (V0.4n ... "คงไว้" 100%)
+    // 4.4: ประมวลผลกลุ่ม "MISC" (V1.0 ... คงไว้)
     const miscOutputData = [];
-    miscBucket.sort((a, b) => a.fullId.localeCompare(b.fullId));
+    // [V1.0] "Stable Sort" (คงไว้)
+    Logger.log(`[QST Lib] "Stable Sort" (V1.0): กรองข้อมูล MISC ได้ ${miscBucket.length} แถว (โดยไม่จัดเรียง FID)`);
+    
     let miscLineCounter = 1; 
     for (const group of miscBucket) {
         const fullId_H = group.fullId; const jpText_E = group.dialogue;
@@ -198,6 +243,10 @@ function buildQstWsp(ss, splitMode = 1) {
         const speakerInfo = speakerNamesMap.get(group.actor) || { jp: group.actor, us: group.actor, enjp: null };
         const enjpActor = speakerInfo.enjp || (enjpPivotMap.get(fullId_H) ? enjpPivotMap.get(fullId_H).actor : null) || speakerInfo.us;
         const speakerNames_G = [speakerInfo.jp, speakerInfo.us, enjpActor].filter(Boolean).join(" / ");
+        
+        // (จุดนี้สำคัญ)
+        // "ID นำทางกำกับ" (qMISC-0001) นี้
+        // บัดนี้ ถูกสร้างขึ้นตาม "ลำดับทางกายภาพ" ที่เสถียรแล้ว
         const potentialId = "qMISC-" + String(miscLineCounter++).padStart(4, "0"); 
         const oldData = lifeboatMap.get(potentialId) || anchorMap.get(fullId_H) || { th: "", notes: "" };
         const translation_B = oldData.th; const notes_D = oldData.notes;
@@ -213,8 +262,8 @@ function buildQstWsp(ss, splitMode = 1) {
         miscOutputData.push(newRow);
     }
     
-    // --- Phase 5: [V0.3] "Dynamic Write" & "Smart Cleanup" ---
-    // (ตรรกะ V0.3-FIX3 ... "คงไว้" 100% ไม่มีการแก้ไข)
+    // --- Phase 5: [V2.0] "Dynamic Write" & "Smart Cleanup" ---
+    
     let totalRowsWritten = 0;
     let finalSheetConfigs = [];
     let finalSheetNamesWritten = [];
@@ -223,6 +272,7 @@ function buildQstWsp(ss, splitMode = 1) {
       finalSheetNamesWritten = [V3_QST_TARGET_COMBINED];
     } 
     else if (splitMode === 2) {
+      // (โหมด 2: "ล้าง" MISC แยกต่างหาก)
       if (miscOutputData.length > 0) {
          sheetConfigs.push({ sheetName: V3_QST_MISC_SHEET, data: miscOutputData });
          sheetNamesWritten.push(V3_QST_MISC_SHEET);
@@ -231,21 +281,30 @@ function buildQstWsp(ss, splitMode = 1) {
       finalSheetNamesWritten = sheetNamesWritten;
     }
     else {
-      if (miscOutputData.length > 0) {
-        smartSplitBucket = smartSplitBucket.concat(miscOutputData);
-      }
+      // (โหมด 3: "ล้าง" V2.0)
+      
+      // [FIX V2.0] "ล้าง" ถังสะสมเควสเล็กที่ "เหลือ" เป็นก้อนสุดท้าย
       if (smartSplitBucket.length > 0) {
-        if (sheetConfigs.length > 0 && smartSplitBucket.length < V3_QST_SMART_SPLIT_MINIMUM) {
-          const lastConfig = sheetConfigs[sheetConfigs.length - 1];
-          lastConfig.data = lastConfig.data.concat(smartSplitBucket);
-        } else {
-          const sheetName = V3_QST_SMART_PREFIX + String.fromCharCode(64 + smartSplitSheetCounter++) + V3_QST_SMART_SUFFIX;
-          sheetConfigs.push({ sheetName: sheetName, data: smartSplitBucket });
-        }
+        Logger.log(`[QST V2.0] "ล้าง" ถังสะสมสุดท้าย ${smartSplitBucket_BaseName} (${smartSplitBucket.length} แถว)`);
+        sheetConfigs.push({ sheetName: smartSplitBucket_BaseName, data: smartSplitBucket });
+        sheetNamesWritten.push(smartSplitBucket_BaseName);
       }
+      
+      // [FIX V2.0] "ล้าง" MISC แยกต่างหาก (เหมือนโหมด 2)
+      if (miscOutputData.length > 0) {
+        Logger.log(`[QST V2.0] "ล้าง" ข้อมูล MISC (${miscOutputData.length} แถว) ลงใน ${V3_QST_MISC_SHEET}`);
+        sheetConfigs.push({ sheetName: V3_QST_MISC_SHEET, data: miscOutputData });
+        sheetNamesWritten.push(V3_QST_MISC_SHEET);
+      }
+      
+      // [ถอนซาก V1.0] (ลบตรรกะ "รวมถังสุดท้าย" ที่พัง (concat) ทิ้ง)
+      // [ถอนซาก V1.0] (ลบตรรกะ "ป้องกันชีตกำพร้า" (MINIMUM) ทิ้ง)
+      
       finalSheetConfigs = sheetConfigs;
-      finalSheetNamesWritten = sheetConfigs.map(config => config.sheetName);
+      finalSheetNamesWritten = sheetNamesWritten; // (V2.0: ใช้ sheetNamesWritten ที่เราสร้างไว้)
     }
+    
+    // (ส่วนการเขียน ... เหมือนเดิม V1.0)
     for (const config of finalSheetConfigs) {
       if (config.data.length === 0) continue; 
       let targetSheet = ss.getSheetByName(config.sheetName);
@@ -257,6 +316,8 @@ function buildQstWsp(ss, splitMode = 1) {
       targetSheet.getRange(4, 1, fullOutput.length, 8).setValues(fullOutput);
       totalRowsWritten += config.data.length;
     }
+    
+    // (ส่วนการล้าง ... เหมือนเดิม V1.0)
     const uniqueSheetsToCleanup = uniqueSheetsToScan; 
     for (const sheetName of uniqueSheetsToCleanup) {
       if (!finalSheetNamesWritten.includes(sheetName)) {
@@ -269,16 +330,16 @@ function buildQstWsp(ss, splitMode = 1) {
     let modeText = "N/A";
     if (splitMode === 1) modeText = `โหมด "รวม"`;
     else if (splitMode === 2) modeText = `โหมด "แยกย่อย" (Qx_WSP)`;
-    else modeText = `โหมด "Smart Split" (QST_x_WSP)`;
+    else modeText = `โหมด "นักล่าเควสเล็ก" (V2.0)`; // (V2.0: อัปเดตชื่อโหมด)
 
     const finalSheetNames = finalSheetNamesWritten.length > 0 ? finalSheetNamesWritten.join(', ') : "ไม่พบข้อมูล";
     
-    Logger.log(`[QST Lib] สร้างโมดูลเควสเสร็จสมบูรณ์!\n(${modeText})\n\n` +
+    Logger.log(`[QST Lib] สร้างโมดูลเควส (V1.0) เสร็จสมบูรณ์!\n(${modeText})\n\n` +
              `- สร้างข้อมูลนิ่ง ${totalRowsWritten} แถว\n` +
              `- ลงใน ${finalSheetNamesWritten.length} ชีต (${finalSheetNames})\n` +
              `- ผสานข้อมูลแปลเดิม (C) ${lifeboatMap.size} + (H) ${anchorMap.size} รายการ`);
     
-    // (คืนค่าผลลัพธ์ให้ตัวเรียกใช้ ... เผื่อใช้ในอนาคต)
+    // (คืนค่าผลลัพธ์ให้ตัวเรียกใช้)
     return {
       success: true,
       mode: modeText,
