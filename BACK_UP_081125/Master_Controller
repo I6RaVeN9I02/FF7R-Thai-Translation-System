@@ -1,14 +1,13 @@
 /**
  * =============================================================
  * File: Master_Controller.gs (Library Version - "Translation Engine")
- * (สถานะ: V1.4 "Formula Migrator")
+ * (สถานะ: V1.4-FIX-1 "Cleanup")
+ * (ณ: 2025-11-09 14:54)
  *
- * V1.4 (Changelog):
- * - [ผสาน] เพิ่ม API ที่ 5: Formula Migrator (`runFormulaInjectionByKey`)
- *
- * V1.3 (Changelog):
- * - [เพิ่ม] สถาปัตยกรรม 2-Call
- * - [เพิ่ม] API ที่ 4: `runMainPreFlight`
+ * V1.4-FIX-1 (Changelog):
+ * - [ถอนซาก] ลบ API ที่ 4 (`runMainPreFlight`) ที่ล้มเหลว (2-Call)
+ * - [ถอนซาก] ลบ Changelog V1.3 (2-Call) และ V1.4 (Migrator FAIL)
+ * - [คงไว้] คงสถานะ V1.2 (Stable 1-Call) ที่แก้ไขบั๊ก Sherlock แล้ว
  *
  * V1.2 (Changelog):
  * - [FIX] แก้ไขการ "ห่อผลลัพธ์ซ้ำซ้อน" (Double Wrapping) ของ Sherlock
@@ -68,7 +67,7 @@ function runFullWorkspace(ss) {
  */
 function runMainBuild(ss, splitInput) {
   Logger.log(`[Library API] รับคำสั่งรัน MAIN (Split: ${splitInput})`);
-  return buildMainWsp(ss, splitInput); // (นี่คือ Call 2)
+  return buildMainWsp(ss, splitInput); // (นี่คือ Call 2 ... หมายถึง 1-Call)
 }
 
 function runQstBuild(ss, splitMode) {
@@ -111,39 +110,13 @@ function runSherlockCleanup(ss) {
     // [FIX V1.2] เรียกฟังก์ชันล้างข้อมูล และ "ส่งผลลัพธ์กลับไปตรงๆ"
     return sherlock_cleanupPermanent(ss);
   } catch (e) {
-    Logger.log(`Library API 3: เกิดข้อผิดพลาด: ${e}`);
+    Logger.log(`[Library API 3: เกิดข้อผิดพลาด: ${e}`);
     return { success: false, error: e.message };
   }
 }
 
 /**
  * ===========================================
- * "API" ที่ 4: Pre-Flight (V1.3 Added)
- * (นี่คือ API สำหรับ "Call 1" ของเรา)
+ * (ซากของ API ที่ 4 ... ถูกลบออกแล้ว ... V1.4-FIX-1)
  * ===========================================
  */
-function runMainPreFlight(ss) {
-  Logger.log('[Library API] รับคำสั่ง "Call 1: Main Pre-Flight"...');
-  try {
-    return getMainPreFlightInfo(ss);
-  } catch (e) {
-    Logger.log(`[Library API] "Call 1" ล้มเหลว: ${e.message}`);
-    return { success: false, error: e.message };
-  }
-}
-
-/**
- * ===========================================
- * "API" ที่ 5: Formula Migrator (V1.4 Added)
- * ===========================================
- */
-function runFormulaInjectionByKey(ss, formulaKey) {
-  Logger.log(`Library API 5: "runFormulaInjectionByKey" ถูกเรียกใช้ (Key: ${formulaKey})`);
-  try {
-    // (เรียก "เครื่องยนต์" ที่แท้จริง ที่อยู่ใน Formula_Migrator.gs)
-    return runFormulaInjection(ss, formulaKey); 
-  } catch (e) {
-    Logger.log(`Library API 5: เกิดข้อผิดพลาด: ${e}`);
-    return { success: false, error: e.message };
-  }
-}
