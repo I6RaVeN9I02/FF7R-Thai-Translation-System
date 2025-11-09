@@ -1,13 +1,14 @@
 /**
  * =============================================================
  * File: Globals.gs (Library Version - "Translation Engine")
- * (สถานะ: V1.2 "Formula Migrator")
+ * (สถานะ: V1.2.1 "Hotfix V3_RAW Defines")
  *
- * V1.2 (Changelog):
- * - [กู้คืน] สร้างเนื้อหา V1.1 ที่หายไป (จากการอนุมาน)
- * - [ผสาน] เพิ่ม FORMULA_MIGRATOR_SOURCE_ID
+ * V1.2.1 (Changelog):
+ * - [HOTFIX] แก้ไข Error: "V3_RAW_ENJP is not defined"
+ * - [HOTFIX] เพิ่ม 2 บรรทัดที่ขาดหายไป (`V3_RAW_JP`, `V3_RAW_ENJP`)
+ * กลับเข้าไปใน "ส่วนที่ 3.2: WTP Modules"
  *
- * V1.1 (Changelog - ที่อนุมานขึ้น):
+ * V1.2 (Changelog - ที่อนุมานขึ้น):
  * - สร้างค่าคงที่สำหรับ WTP V3 Modules (MAIN, QST, NPC, ETC)
  * - สร้างค่าคงที่สำหรับ Project Sherlock
  * =============================================================
@@ -35,10 +36,10 @@ const SHEET_NAMES = {
   TARGET_SHEET_NAME: "Names_JP_TH_EN", // (Sherlock ใช้เขียน)
 
   // 1.3: ชีตเป้าหมายหลัก WTP V3
-  V3_TARGET_SHEET:   "MAIN_WSP_V3",  // (ของ MAIN)
-  V3_QST_TARGET_COMBINED: "QST_WSP_V3", // (ของ QST โหมด 1)
-  V3_NPC_TARGET:     "NPC_WSP_V3",
-  V3_ETC_TARGET:     "ETC_WSP_V3",
+  V3_TARGET_SHEET:   "MAIN_WSP",  // (ของ MAIN)
+  V3_QST_TARGET_COMBINED: "QST_WSP", // (ของ QST โหมด 1)
+  V3_NPC_TARGET:     "NPC_WSP",
+  V3_ETC_TARGET:     "ETC_WSP",
   V3_QST_MISC_SHEET: "QST_MISC",     // (ของ QST โหมด 2)
   
   // 1.4: ชีตระบบ Sherlock
@@ -81,6 +82,10 @@ const V3_QST_TARGET_COMBINED = SHEET_NAMES.V3_QST_TARGET_COMBINED;
 const V3_NPC_TARGET     = SHEET_NAMES.V3_NPC_TARGET;
 const V3_ETC_TARGET     = SHEET_NAMES.V3_ETC_TARGET;
 const V3_QST_MISC_SHEET = SHEET_NAMES.V3_QST_MISC_SHEET;
+// --- (V1.2.1 HOTFIX: เพิ่ม 2 บรรทัดนี้สำหรับ WTP Modules) ---
+const V3_RAW_JP         = SHEET_NAMES.RAW_JP_SHEET_NAME;
+const V3_RAW_ENJP       = SHEET_NAMES.RAW_ENJP_SHEET_NAME;
+
 
 // 3.3: Sherlock
 const TEMP_CASE_FILES     = SHEET_NAMES.TEMP_CASE_FILES;
