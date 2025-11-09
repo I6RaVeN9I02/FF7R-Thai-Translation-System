@@ -1,20 +1,19 @@
 /**
  * =============================================================
  * File: WTP_V3_Module_MAIN.gs (Library Version)
- * (Beta V0.9 "Hybrid" - Unified Standard)
+ * (สถานะ: V1.0 "Stable Sort")
+ * (ณ: 2025-11-09 16:10)
  *
- * V0.9_Lib-1 (Changelog):
- * - [ย้าย] มาเป็นไลบรารี "Translation Engine"
- * - [ผ่าตัด] ฟังก์ชัน `buildMainWsp_Beta_V0_9` ถูกเปลี่ยนชื่อเป็น `buildMainWsp`
- * - [ผ่าตัด] `SpreadsheetApp.getActiveSpreadsheet()` และ `getUi()` ถูกลบออก
- * - [ผ่าตัด] ฟังก์ชันรับ `ss` (Spreadsheet) และ `splitInput` (กฎการแบ่ง) เป็นพารามิเตอร์
- * - [ผ่าตัด] `ui.alert` ทั้งหมดถูกเปลี่ยนเป็น `Logger.log`
- * - [ผ่าตัด] `ui.prompt` สำหรับการแบ่งชีต ถูกถอดออกโดยสมบูรณ์
+ * V1.0 "Stable Sort" (Changelog):
+ * - [ผ่าตัด] ถอน "ตรรกะการจัดเรียงที่พัง" (Broken Sort Logic)
+ * - [FIX] ลบบรรทัด `mainGroups.sort(...)` (บรรทัด 129) ที่อิงตามรหัสเต็ม (Full ID)
+ * - [ใช้] หันมาใช้ "ลำดับทางกายภาพ" (Physical Order) ของข้อมูลดิบ
+ * เพื่อ "กำกับบรรทัด" ID นำทาง (m01, m02) ให้ "เสถียร"
  * =============================================================
  */
 
 function buildMainWsp(ss, splitInput = 1) { 
-  Logger.log(`[MAIN Lib] เริ่มสร้างโมดูล MAIN... (ได้รับ SplitRule = ${splitInput})`);
+  Logger.log(`[MAIN Lib] เริ่มสร้างโมดูล MAIN (V1.0 "Stable Sort")...`);
 
   try {
     // --- Phase 1: [V0.9] "Super Scanner" ---
@@ -22,11 +21,6 @@ function buildMainWsp(ss, splitInput = 1) {
     const lifeboatMap = new Map();
     const anchorMap = new Map();   
     
-    const allPossibleSheets = [V3_TARGET_SHEET];
-    for (let i = 1; i <= 10; i++) { 
-      allPossibleSheets.push("MAIN_" + String(i).padStart(2, "0"));
-    }
-
     for (const sheetName of allPossibleSheets) {
       const v2Sheet = ss.getSheetByName(sheetName);
       
@@ -108,7 +102,7 @@ function buildMainWsp(ss, splitInput = 1) {
       else { group.dialogue = text; }
     }
 
-    // --- Phase 3: Build & Merge (V0.9 Hybrid-Key) ---
+    // --- Phase 3: Build & Merge (V1.0 "Stable Sort") ---
     const output_MAIN = []; 
     const header = [
       ["ไอดีนำทาง (A)", "การแปลไทย (B)", "IDนำทางกำกับ (C)", "หมายเหตุ (D)", "Raw_JP (E)", "Raw_ENJP (F)", "ชื่อผู้พูด (G)", "Full ID (H)"]
@@ -116,7 +110,14 @@ function buildMainWsp(ss, splitInput = 1) {
     let specialIdCounter = 1; 
     const mainGroups = Array.from(dialogueGroups.values())
         .filter(g => g.fullId.includes("_MAIN_") && g.dialogue);
-    mainGroups.sort((a, b) => a.fullId.localeCompare(b.fullId));
+        
+    // [FIX V1.0] "ตรรกะการจัดเรียงที่พัง" (Broken Sort Logic)
+    // (เราได้ลบบรรทัด mainGroups.sort(...) ทิ้งไป)
+    // เราจะยึดถือ "ลำดับทางกายภาพ" (Physical Order) ของข้อมูลดิบ
+    // ที่ถูกอ่านเข้ามา (ใน dialogueGroups) ว่าเป็น "ตัวกำกับบรรทัด" ที่เสถียรที่สุด
+    // (mainGroups.sort((a, b) => a.fullId.localeCompare(b.fullId))); // <--- (ลบออก)
+
+    Logger.log(`[MAIN Lib] "Stable Sort" (V1.0): กรองข้อมูล MAIN ได้ ${mainGroups.length} แถว (โดยไม่จัดเรียง FID)`);
 
     for (const group of mainGroups) {
       const fullId_H = group.fullId;
@@ -126,8 +127,15 @@ function buildMainWsp(ss, splitInput = 1) {
       const speakerInfo = speakerNamesMap.get(group.actor) || { jp: group.actor, us: group.actor, enjp: null };
       const enjpActor = speakerInfo.enjp || (enjpPivotMap.get(fullId_H) ? enjpPivotMap.get(fullId_H).actor : null) || speakerInfo.us;
       const speakerNames_G = [speakerInfo.jp, speakerInfo.us, enjpActor].filter(Boolean).join(" / ");
+      
+      // (จุดนี้สำคัญ)
+      // "ID นำทางกำกับ" (m01, m02) นี้
+      // บัดนี้ ถูกสร้างขึ้นตาม "ลำดับทางกายภาพ" ที่เสถียรแล้ว
       const potentialId = "m" + String(specialIdCounter++).padStart(2, "0"); 
       
+      // "ตรรกะกุญแจผสม" (Hybrid-Key)
+      // บัดนี้ "กุญแจ C" (lifeboatMap.get(potentialId))
+      // จะกลับมาทำงานได้อย่างถูกต้องแล้ว
       const oldData = lifeboatMap.get(potentialId) || anchorMap.get(fullId_H) || { th: "", notes: "" };
       const translation_B = oldData.th;
       const notes_D = oldData.notes;
@@ -215,7 +223,7 @@ function buildMainWsp(ss, splitInput = 1) {
       }
     }
 
-    Logger.log(`[MAIN Lib] โมดูล MAIN สร้างเสร็จสมบูรณ์!\n- สร้างข้อมูลนิ่ง ${totalRowsWritten} แถว\n- ลงใน ${sheetNamesWritten.length} ชีต (${sheetNamesWritten.join(', ')})\n- ผสานข้อมูลแปลเดิม (C) ${lifeboatMap.size} + (H) ${anchorMap.size} รายการ`);
+    Logger.log(`[MAIN Lib] โมดูล MAIN V1.0 "Stable Sort" สร้างเสร็จสมบูรณ์!\n- สร้างข้อมูลนิ่ง ${totalRowsWritten} แถว\n- ลงใน ${sheetNamesWritten.length} ชีต (${sheetNamesWritten.join(', ')})\n- ผสานข้อมูลแปลเดิม (C) ${lifeboatMap.size} + (H) ${anchorMap.size} รายการ`);
 
     // (คืนค่าผลลัพธ์ให้ตัวเรียกใช้ ... เผื่อใช้ในอนาคต)
     return {
