@@ -1,21 +1,23 @@
 /**
  * =============================================================
  * File: Globals.gs (Library Version - "Translation Engine")
- * (สถานะ: V1.2.1 "Hotfix V3_RAW Defines")
+ * (สถานะ: V1.3 "QST V2.0 Refactor")
+ * (ณ: 2025-11-09 17:33)
  *
- * V1.2.1 (Changelog):
- * - [HOTFIX] แก้ไข Error: "V3_RAW_ENJP is not defined"
- * - [HOTFIX] เพิ่ม 2 บรรทัดที่ขาดหายไป (`V3_RAW_JP`, `V3_RAW_ENJP`)
- * กลับเข้าไปใน "ส่วนที่ 3.2: WTP Modules"
+ * V1.3 (Changelog):
+ * - [ผ่าตัด] อัปเกรด `QST_CONFIG` เพื่อรองรับ "ตรรกะ V2.0" (นักล่าเควสเล็ก)
+ * - [ถอนซาก] ลบ `V3_QST_SMART_SPLIT_THRESHOLD: 1200` (ตรรกะ V1.0)
+ * - [ถอนซาก] ลบ `V3_QST_SMART_SPLIT_MINIMUM: 100` (ตรรกะ V1.0)
+ * - [ติดตั้ง] เพิ่ม `V3_QST_SMALL_QUEST_THRESHOLD: 100` (ตรรกะ V2.0)
  *
- * V1.2 (Changelog - ที่อนุมานขึ้น):
- * - สร้างค่าคงที่สำหรับ WTP V3 Modules (MAIN, QST, NPC, ETC)
- * - สร้างค่าคงที่สำหรับ Project Sherlock
+ * V1.2.2-DOC (Changelog):
+ * - [เอกสาร] เพิ่มความคิดเห็นอ้างอิงเวอร์ชันที่เสถียร
  * =============================================================
  */
 
 // -------------------------------------------
 // (V1.2) รหัส "คลังพิมพ์เขียวสูตรส่วนกลาง"
+// (นี่คือ "ซาก" ที่เรา "เก็บไว้" สำหรับอนาคต)
 // -------------------------------------------
 const FORMULA_MIGRATOR_SOURCE_ID = "1X0J4SRt38hIwMKeTzM1u0LjEKaYD8lhUncsiar4Qzt8";
 
@@ -50,15 +52,19 @@ const SHEET_NAMES = {
   AUDIT_SHEET_NAME:    "Sherlock_Audit"
 };
 
-// --- (ส่วนที่ 2) ค่าคงที่สำหรับ WTP V3 Module: QST ---
+// --- (ส่วนที่ 2) ค่าคงที่สำหรับ WTP V3 Module: QST [V1.3 "ผ่าตัด"] ---
 const QST_CONFIG = {
-  // 2.1: ตัวเลข (อาเรีย "เดา" ค่าเหล่านี้)
+  // 2.1: ตัวเลข
   V3_QST_MAX_COUNT: 20,              // (จำนวน Qx_WSP สูงสุด)
   V3_QST_SMART_MAX_SHEETS: 10,       // (จำนวน QST_x_WSP สูงสุด)
-  V3_QST_SMART_SPLIT_THRESHOLD: 1200,// (จำนวนแถวสูงสุดก่อนแบ่ง)
-  V3_QST_SMART_SPLIT_MINIMUM: 100,  // (จำนวนแถวขั้นต่ำที่จะแยกชีต)
+  
+  // [ติดตั้ง V2.0] เกณฑ์ที่ใช้ตัดสินว่าเควส "เล็ก" (อิงจากข้อมูล TOTAL COUNT)
+  V3_QST_SMALL_QUEST_THRESHOLD: 100,
+  
+  // [ถอนซาก V1.0] (V3_QST_SMART_SPLIT_THRESHOLD: 1200)
+  // [ถอนซาก V1.0] (V3_QST_SMART_SPLIT_MINIMUM: 100)
 
-  // 2.2: ชื่อนำหน้า/ต่อท้าย (อาเรีย "เดา" ค่าเหล่านี้)
+  // 2.2: ชื่อนำหน้า/ต่อท้าย (คงเดิม)
   V3_QST_MODE2_PREFIX: "Q",
   V3_QST_MODE2_SUFFIX: "_WSP",
   V3_QST_SMART_PREFIX: "QST_",
@@ -94,18 +100,23 @@ const TEMP_US_EVIDENCE    = SHEET_NAMES.TEMP_US_EVIDENCE;
 const TEMP_ENJP_EVIDENCE  = SHEET_NAMES.TEMP_ENJP_EVIDENCE;
 const AUDIT_SHEET_NAME    = SHEET_NAMES.AUDIT_SHEET_NAME;
 
-// 3.4: QST Config
+// 3.4: QST Config [V1.3 "ผ่าตัด"]
 const V3_QST_MAX_COUNT = QST_CONFIG.V3_QST_MAX_COUNT;
 const V3_QST_MODE2_PREFIX = QST_CONFIG.V3_QST_MODE2_PREFIX;
 const V3_QST_MODE2_SUFFIX = QST_CONFIG.V3_QST_MODE2_SUFFIX;
 const V3_QST_SMART_MAX_SHEETS = QST_CONFIG.V3_QST_SMART_MAX_SHEETS;
 const V3_QST_SMART_PREFIX = QST_CONFIG.V3_QST_SMART_PREFIX;
 const V3_QST_SMART_SUFFIX = QST_CONFIG.V3_QST_SMART_SUFFIX;
-const V3_QST_SMART_SPLIT_THRESHOLD = QST_CONFIG.V3_QST_SMART_SPLIT_THRESHOLD;
-const V3_QST_SMART_SPLIT_MINIMUM = QST_CONFIG.V3_QST_SMART_SPLIT_MINIMUM;
+
+// [ติดตั้ง V2.0]
+const V3_QST_SMALL_QUEST_THRESHOLD = QST_CONFIG.V3_QST_SMALL_QUEST_THRESHOLD;
+
+// [ถอนซาก V1.0]
+// const V3_QST_SMART_SPLIT_THRESHOLD = QST_CONFIG.V3_QST_SMART_SPLIT_THRESHOLD;
+// const V3_QST_SMART_SPLIT_MINIMUM = QST_CONFIG.V3_QST_SMART_SPLIT_MINIMUM;
 
 
 // --- (ส่วนที่ 4) ค่าคงที่อื่นๆ ที่ยังไม่ถูกใช้งาน (ถ้ามี) ---
-// (เช่น COL_IN, LIFEBOAT_CONFIG ที่ตอนนี้ยังว่างอยู่)
+// (นายท่านสั่ง "ห้าม" ลบส่วนนี้ อาเรียจะ "คงไว้" 100% ค่ะ)
 const COL_IN = {};
 const LIFEBOAT_CONFIG = {};
