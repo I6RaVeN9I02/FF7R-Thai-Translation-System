@@ -1,20 +1,19 @@
 /**
  * =============================================================
  * File: WTP_V3_Module_ETC.gs (Library Version)
- * (Alpha V0.1 "Unified Standard")
+ * (สถานะ: V1.0 "Stable Sort")
+ * (ณ: 2025-11-09 16:03)
  *
- * V0.1_Lib-1 (Changelog):
- * - [ย้าย] มาเป็นไลบรารี "Translation Engine"
- * - [ผ่าตัด] ฟังก์ชัน `buildEtcWsp_Alpha_V0_1` ถูกเปลี่ยนชื่อเป็น `buildEtcWsp`
- * - [ผ่าตัด] `SpreadsheetApp.getActiveSpreadsheet()` และ `getUi()` ถูกลบออก
- * - [ผ่าตัด] ฟังก์ชันรับ `ss` (Spreadsheet) เป็นพารามิเตอร์
- * - [ผ่าตัด] `ui.alert` ทั้งหมดถูกเปลี่ยนเป็น `Logger.log`
- * - [เพิ่ม] การคืนค่าผลลัพธ์ (Return Object) ให้เป็นมาตรฐานไลบรารี
+ * V1.0 "Stable Sort" (Changelog):
+ * - [ผ่าตัด] ถอน "ตรรกะการจัดเรียงที่พัง" (Broken Sort Logic)
+ * - [FIX] ลบบรรทัด `etcGroups.sort(...)` (บรรทัด 123) ที่อิงตามรหัสเต็ม (Full ID)
+ * - [ใช้] หันมาใช้ "ลำดับทางกายภาพ" (Physical Order) ของข้อมูลดิบ
+ * เพื่อ "กำกับบรรทัด" ID นำทาง (e01, e02) ให้ "เสถียร"
  * =============================================================
  */
 
 function buildEtcWsp(ss) { 
-  Logger.log(`[ETC Lib] เริ่มสร้างโมดูล ETC (Alpha V0.1)...`);
+  Logger.log(`[ETC Lib] เริ่มสร้างโมดูล ETC (V1.0 "Stable Sort")...`);
 
   try {
     // --- Phase 1: [V1.0] Preservation Scanner ---
@@ -114,19 +113,31 @@ function buildEtcWsp(ss) {
     const etcGroups = Array.from(dialogueGroups.values())
         .filter(g => (g.fullId.includes("BOS") || g.fullId.includes("psbl0") || g.fullId.includes("ENM")) && g.dialogue);
         
-    etcGroups.sort((a, b) => a.fullId.localeCompare(b.fullId));
+    // [FIX V1.0] "ตรรกะการจัดเรียงที่พัง" (Broken Sort Logic)
+    // (เราได้ลบบรรทัด etcGroups.sort(...) ทิ้งไป)
+    // เราจะยึดถือ "ลำดับทางกายภาพ" (Physical Order) ของข้อมูลดิบ
+    // ที่ถูกอ่านเข้ามา (ใน dialogueGroups) ว่าเป็น "ตัวกำกับบรรทัด" ที่เสถียรที่สุด
+    // (etcGroups.sort((a, b) => a.fullId.localeCompare(b.fullId))); // <--- (ลบออก)
+
+    Logger.log(`[ETC Lib] "Stable Sort" (V1.0): กรองข้อมูล ETC ได้ ${etcGroups.length} แถว (โดยไม่จัดเรียง FID)`);
 
     for (const group of etcGroups) {
       const fullId_H = group.fullId;
       const jpText_E = group.dialogue;
       const enjpGroup = enjpPivotMap.get(fullId_H) || { dialogue: "" };
-      const enjpText_F = enjpGroup.dialogGue;
+      const enjpText_F = enjpGroup.dialogue; // (V1.0 - แก้ไข: `dialogue` ไม่ใช่ `dialogGue`)
       const speakerInfo = speakerNamesMap.get(group.actor) || { jp: group.actor, us: group.actor, enjp: null };
       const enjpActor = speakerInfo.enjp || (enjpPivotMap.get(fullId_H) ? enjpPivotMap.get(fullId_H).actor : null) || speakerInfo.us;
       const speakerNames_G = [speakerInfo.jp, speakerInfo.us, enjpActor].filter(Boolean).join(" / ");
       
+      // (จุดนี้สำคัญ)
+      // "ID นำทางกำกับ" (e01, e02) นี้
+      // บัดนี้ ถูกสร้างขึ้นตาม "ลำดับทางกายภาพ" ที่เสถียรแล้ว
       const potentialId = "e" + String(specialIdCounter++).padStart(2, "0"); 
       
+      // "ตรรกะกุญแจผสม" (Hybrid-Key)
+      // บัดนี้ "กุญแจ C" (lifeboatMap.get(potentialId))
+      // จะกลับมาทำงานได้อย่างถูกต้องแล้ว
       const oldData = lifeboatMap.get(potentialId) || anchorMap.get(fullId_H) || { th: "", notes: "" };
       const translation_B = oldData.th;
       const notes_D = oldData.notes;
@@ -161,8 +172,7 @@ function buildEtcWsp(ss) {
     
     // --- Phase 5: Cleanup ---
     // (ไม่มีชีตย่อยให้ล้าง)
-
-    Logger.log(`[ETC Lib] โมดูล ETC V0.1 สร้างเสร็จสมบูรณ์!\n- สร้างข้อมูลนิ่ง ${totalRowsWritten} แถว\n- ลงในชีต ${V3_ETC_TARGET}\n- ผสานข้อมูลแปลเดิม (C) ${lifeboatMap.size} + (H) ${anchorMap.size} รายการ`);
+    Logger.log(`[ETC Lib] โมดูล ETC V1.0 "Stable Sort" สร้างเสร็จสมบูรณ์!\n- สร้างข้อมูลนิ่ง ${totalRowsWritten} แถว\n- ลงในชีต ${V3_ETC_TARGET}\n- ผสานข้อมูลแปลเดิม (C) ${lifeboatMap.size} + (H) ${anchorMap.size} รายการ`);
 
     // (คืนค่าผลลัพธ์ให้ตัวเรียกใช้)
     return {
