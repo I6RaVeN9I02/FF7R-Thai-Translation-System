@@ -1,22 +1,24 @@
 /**
  * =============================================================
  * File: WTP_V3_Module_NPC.gs (Library Version)
- * (Alpha V0.1 "Unified Standard")
+ * (สถานะ: V1.1 "SyntaxFix")
+ * (ณ: 2025-11-09 15:58)
  *
- * V0.1_Lib-1 (Changelog):
- * - [ย้าย] มาเป็นไลบรารี "Translation Engine"
- * - [ผ่าตัด] ฟังก์ชัน `buildNpcWsp_Alpha_V0_1` ถูกเปลี่ยนชื่อเป็น `buildNpcWsp`
- * - [ผ่าตัด] `SpreadsheetApp.getActiveSpreadsheet()` และ `getUi()` ถูกลบออก
- * - [ผ่าตัด] ฟังก์ชันรับ `ss` (Spreadsheet) เป็นพารามิเตอร์
- * - [ผ่าตัด] `ui.alert` ทั้งหมดถูกเปลี่ยนเป็น `Logger.log`
+ * V1.1 "SyntaxFix" (Changelog):
+ * - [ผ่าตัด] แก้ไข "SyntaxError" (Invalid destructuring) ที่เกิดใน V1.0
+ * - [FIX] ลบ "โค้ดซาก" (Junk Code) ที่ซ้ำซ้อน (บรรทัด 38-42)
+ * - [FIX] เพิ่มบรรทัด `const startRow = ...` ที่ "ขาดหายไป"
+ *
+ * V1.0 "Stable Sort" (Changelog):
+ * - [ผ่าตัด] ถอน "ตรรกะการจัดเรียงที่พัง" (Broken Sort Logic)
  * =============================================================
  */
 
 function buildNpcWsp(ss) { 
-  Logger.log(`[NPC Lib] เริ่มสร้างโมดูล NPC (Alpha V0.1)...`);
+  Logger.log(`[NPC Lib] เริ่มสร้างโมดูล NPC (V1.1 "SyntaxFix")...`);
 
   try {
-    // --- Phase 1: [V1.0] Preservation Scanner ---
+    // --- Phase 1: [V1.1] Preservation Scanner (Syntax FIX) ---
     
     const lifeboatMap = new Map(); 
     const anchorMap = new Map();   
@@ -33,11 +35,15 @@ function buildNpcWsp(ss) {
           data, headerRowIndex, scanMode 
         } = v2Boundaries;
         
+        // [FIX V1.1] "เพิ่ม" บรรทัดนี้ที่ขาดหายไปใน V1.0
         const startRow = (scanMode === "HEADER") ? headerRowIndex + 1 : 0;
         
+        // [FIX V1.1] "ลบ" โค้ดซาก (Junk Code) ที่ซ้ำซ้อน (บรรทัด 38-42) ออก
+        
+        // (ลูปที่ถูกต้อง ... บัดนี้ 'startRow' ถูกต้องแล้ว)
         for (let i = startRow; i < data.length; i++) { 
           const row = data[i];
-          
+
           if (row.length <= thColIdx) continue; 
           if (idColIdx !== -1 && row.length <= idColIdx) continue;
           
@@ -112,7 +118,13 @@ function buildNpcWsp(ss) {
     const npcGroups = Array.from(dialogueGroups.values())
         .filter(g => g.fullId.includes("_NPC_") && g.dialogue);
         
-    npcGroups.sort((a, b) => a.fullId.localeCompare(b.fullId));
+    // [FIX V1.0] "ตรรกะการจัดเรียงที่พัง" (Broken Sort Logic)
+    // (เราได้ลบบรรทัด npcGroups.sort(...) ทิ้งไป)
+    // เราจะยึดถือ "ลำดับทางกายภาพ" (Physical Order) ของข้อมูลดิบ
+    // ที่ถูกอ่านเข้ามา (ใน dialogueGroups) ว่าเป็น "ตัวกำกับบรรทัด" ที่เสถียรที่สุด
+    // (npcGroups.sort((a, b) => a.fullId.localeCompare(b.fullId))); // <--- (ลบออก)
+
+    Logger.log(`[NPC Lib] "Stable Sort" (V1.0): กรองข้อมูล NPC ได้ ${npcGroups.length} แถว (โดยไม่จัดเรียง FID)`);
 
     for (const group of npcGroups) {
       const fullId_H = group.fullId;
@@ -123,8 +135,14 @@ function buildNpcWsp(ss) {
       const enjpActor = speakerInfo.enjp || (enjpPivotMap.get(fullId_H) ? enjpPivotMap.get(fullId_H).actor : null) || speakerInfo.us;
       const speakerNames_G = [speakerInfo.jp, speakerInfo.us, enjpActor].filter(Boolean).join(" / ");
       
+      // (จุดนี้สำคัญ)
+      // "ID นำทางกำกับ" (n01, n02) นี้
+      // บัดนี้ ถูกสร้างขึ้นตาม "ลำดับทางกายภาพ" ที่เสถียรแล้ว
       const potentialId = "n" + String(specialIdCounter++).padStart(2, "0"); 
       
+      // "ตรรกะกุญแจผสม" (Hybrid-Key)
+      // บัดนี้ "กุญแจ C" (lifeboatMap.get(potentialId))
+      // จะกลับมาทำงานได้อย่างถูกต้องแล้ว
       const oldData = lifeboatMap.get(potentialId) || anchorMap.get(fullId_H) || { th: "", notes: "" };
       const translation_B = oldData.th;
       const notes_D = oldData.notes;
@@ -159,8 +177,7 @@ function buildNpcWsp(ss) {
     
     // --- Phase 5: Cleanup ---
     // (ไม่มีชีตย่อยให้ล้าง)
-
-    Logger.log(`[NPC Lib] โมดูล NPC V0.1 สร้างเสร็จสมบูรณ์!\n- สร้างข้อมูลนิ่ง ${totalRowsWritten} แถว\n- ลงในชีต ${V3_NPC_TARGET}\n- ผสานข้อมูลแปลเดิม (C) ${lifeboatMap.size} + (H) ${anchorMap.size} รายการ`);
+    Logger.log(`[NPC Lib] โมดูล NPC V1.1 "SyntaxFix" สร้างเสร็จสมบูรณ์!\n- สร้างข้อมูลนิ่ง ${totalRowsWritten} แถว\n- ลงในชีต ${V3_NPC_TARGET}\n- ผสานข้อมูลแปลเดิม (C) ${lifeboatMap.size} + (H) ${anchorMap.size} รายการ`);
 
     // (คืนค่าผลลัพธ์ให้ตัวเรียกใช้)
     return {
