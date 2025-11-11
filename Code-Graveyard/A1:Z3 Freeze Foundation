@@ -1,0 +1,228 @@
+/**
+ * =============================================================
+ * File: WTP_V3_Module_NPC.gs (Library Version)
+ * (สถานะ: V1.3 "A1:Z3 Freeze Foundation")
+ * (ณ: 2025-11-10 19:20)
+ *
+ * V1.3 "A1:Z3 Freeze Foundation" (Changelog):
+ * - [REFACTOR] "ผ่าตัด" (Refactor) "Phase 4" (Write Phase) ...
+ * - [ติดตั้ง] "ตรรกะ" (Logic) ... "สำรองข้อมูล" (Backup) "A1:Z3" (`headerData`) ... "ก่อน" (Before) `targetSheet.clear()`
+ * - [ติดตั้ง] "ตรรกะ" (Logic) ... "กู้คืนข้อมูล" (Restore) "A1:Z3" (`setValues(headerData)`) ... "ก่อน" (Before) `applyStandardWspFormatting()`
+ * - (นี่คือ "รากฐาน" (Foundation) ... สำหรับ "V12 Engine" (V12 Engine) ...
+ * - ...เพื่อ "เปิดใช้งาน" (Enable) ... `FROZEN_ROWS: 4` ... ใน "อนาคต" (Future))
+ *
+ * V1.2 "Full Fix" (Changelog):
+ * - [FIX-A1-READ] ติดตั้ง `.slice(4)` (เริ่มอ่าน A5) ที่ RAW_JP/ENJP
+ * - [FIX-A2-FORMAT] ติดตั้ง `applyStandardWspFormatting()` (ใน Phase 4)
+ * =============================================================
+ */
+
+function buildNpcWsp(ss) { 
+  // (V1.2: อัปเดต Log)
+  Logger.log(`[NPC Lib] เริ่มสร้างโมดูล NPC (V1.2 "Full Fix")...`);
+
+  try {
+    // --- Phase 1: [V1.1] Preservation Scanner (Syntax FIX) ---
+    
+    const lifeboatMap = new Map(); 
+    const anchorMap = new Map();   
+    
+    const v2Sheet = ss.getSheetByName(V3_NPC_TARGET);
+    
+    if (v2Sheet && v2Sheet.getLastRow() > 0) {
+      
+      const v2Boundaries = findV2Boundaries_V1_0_UNIFIED(v2Sheet); 
+
+      if (v2Boundaries) {
+        const { 
+          thColIdx, idColIdx, notesColIdx, fullIdColIdx, 
+          data, headerRowIndex, scanMode 
+        } = v2Boundaries;
+        
+        // [FIX V1.1] "เพิ่ม" บรรทัดนี้ที่ขาดหายไปใน V1.0
+        const startRow = (scanMode === "HEADER") ? headerRowIndex + 1 : 0;
+        
+        // [FIX V1.1] "ลบ" โค้ดซาก (Junk Code) ที่ซ้ำซ้อน (บรรทัด 38-42) ออก
+        
+        // (ลูปที่ถูกต้อง ... บัดนี้ 'startRow' ถูกต้องแล้ว)
+        for (let i = startRow; i < data.length; i++) { 
+          const row = data[i];
+
+          if (row.length <= thColIdx) continue; 
+          if (idColIdx !== -1 && row.length <= idColIdx) continue;
+          
+          const th = row[thColIdx] || "";
+          const notes = (notesColIdx !== -1 && row.length > notesColIdx) ? (row[notesColIdx] || "") : "";
+          
+          if (th || notes) {
+            if (idColIdx !== -1) {
+              const idSpecial = row[idColIdx];
+              if (idSpecial) {
+                lifeboatMap.set(idSpecial, { th: th, notes: notes });
+              }
+            }
+            if (fullIdColIdx !== -1 && row.length > fullIdColIdx) {
+              const fullId = row[fullIdColIdx];
+              if (fullId) {
+                anchorMap.set(fullId, { th: th, notes: notes });
+              }
+            }
+          }
+        }
+      }
+    } 
+    Logger.log(`[NPC Lib] "Scanner" พบข้อมูล (C) ${lifeboatMap.size} รายการ และ (H) ${anchorMap.size} รายการ`);
+    
+
+    // --- Phase 2: [V1.2] Load Raw Data (FIX-A1-READ) ---
+    const namesSheet = ss.getSheetByName(V3_NAMES_DICT);
+    const namesData = namesSheet.getRange("A:C").getValues();
+    const speakerNamesMap = new Map(); 
+    for (const row of namesData) {
+      if (row[0]) {
+        speakerNamesMap.set(row[0], { us: row[1], enjp: row[2] });
+      }
+    }
+    const enjpSheet = ss.getSheetByName(V3_RAW_ENJP);
+    
+    // [FIX-A1-READ] (V1.2) (เพิ่ม .slice(4) ให้อ่านจาก A5 ... เหมือน Sherlock)
+    const enjpData = enjpSheet.getRange("A:C").getValues().slice(4);
+    
+    const enjpPivotMap = new Map();
+    for (const row of enjpData) {
+      const fullId = row[0]; const type = row[1]; const text = row[2];
+      if (!fullId) continue;
+      if (!enjpPivotMap.has(fullId)) {
+        enjpPivotMap.set(fullId, { actor: null, dialogue: null });
+      }
+      let group = enjpPivotMap.get(fullId);
+      if (type === "ACTOR") { group.actor = text; } 
+      else { group.dialogue = text; }
+    }
+    const jpSheet = ss.getSheetByName(V3_RAW_JP);
+    
+    // [FIX-A1-READ] (V1.2) (เพิ่ม .slice(4) ให้อ่านจาก A5 ... เหมือน Sherlock)
+    const jpData = jpSheet.getRange("A:C").getValues().slice(4); 
+    
+    let dialogueGroups = new Map();
+    for (const row of jpData) {
+      const fullId = row[0]; const type = row[1]; const text = row[2];
+      if (!fullId) continue;
+      if (!dialogueGroups.has(fullId)) {
+        dialogueGroups.set(fullId, { fullId: fullId, actor: null, dialogue: null });
+      }
+      let group = dialogueGroups.get(fullId);
+      if (type === "ACTOR") { group.actor = text; } 
+      else { group.dialogue = text; }
+    }
+
+    // --- Phase 3: Build & Merge (Hybrid-Key) ---
+    
+    const output_NPC = []; 
+    const header = [
+      ["ไอดีนำทาง (A)", "การแปลไทย (B)", "IDนำทางกำกับ (C)", "หมายเหตุ (D)", "Raw_JP (E)", "Raw_ENJP (F)", "ชื่อผู้พูด (G)", "Full ID (H)"]
+    ];
+
+    let specialIdCounter = 1; 
+
+    const npcGroups = Array.from(dialogueGroups.values())
+        .filter(g => g.fullId.includes("_NPC_") && g.dialogue);
+        
+    // [FIX V1.0] "ตรรกะการจัดเรียงที่พัง" (Broken Sort Logic)
+    // (เราได้ลบบรรทัด npcGroups.sort(...) ทิ้งไป)
+    // เราจะยึดถือ "ลำดับทางกายภาพ" (Physical Order) ของข้อมูลดิบ
+    // ที่ถูกอ่านเข้ามา (ใน dialogueGroups) ว่าเป็น "ตัวกำกับบรรทัด" ที่เสถียรที่สุด
+    // (npcGroups.sort((a, b) => a.fullId.localeCompare(b.fullId))); // <--- (ลบออก)
+
+    Logger.log(`[NPC Lib] "Stable Sort" (V1.0): กรองข้อมูล NPC ได้ ${npcGroups.length} แถว (โดยไม่จัดเรียง FID)`);
+
+    for (const group of npcGroups) {
+      const fullId_H = group.fullId;
+      const jpText_E = group.dialogue;
+      const enjpGroup = enjpPivotMap.get(fullId_H) || { dialogue: "" };
+      const enjpText_F = enjpGroup.dialogue;
+      const speakerInfo = speakerNamesMap.get(group.actor) || { jp: group.actor, us: group.actor, enjp: null };
+      const enjpActor = speakerInfo.enjp || (enjpPivotMap.get(fullId_H) ? enjpPivotMap.get(fullId_H).actor : null) || speakerInfo.us;
+      const speakerNames_G = [speakerInfo.jp, speakerInfo.us, enjpActor].filter(Boolean).join(" / ");
+      
+      // (จุดนี้สำคัญ)
+      // "ID นำทางกำกับ" (n01, n02) นี้
+      // บัดนี้ ถูกสร้างขึ้นตาม "ลำดับทางกายภาพ" ที่เสถียรแล้ว
+      const potentialId = "n" + String(specialIdCounter++).padStart(2, "0"); 
+      
+      // "ตรรกะกุญแจผสม" (Hybrid-Key)
+      // บัดนี้ "กุญแจ C" (lifeboatMap.get(potentialId))
+      // จะกลับมาทำงานได้อย่างถูกต้องแล้ว
+      const oldData = lifeboatMap.get(potentialId) || anchorMap.get(fullId_H) || { th: "", notes: "" };
+      const translation_B = oldData.th;
+      const notes_D = oldData.notes;
+      
+      const speakerName_Part1 = enjpActor || speakerInfo.us || speakerInfo.jp || "???"; 
+      const idCode_Part2 = fullId_H.slice(-3); 
+      const final_displayId_A = `${speakerName_Part1} , ${idCode_Part2} , ${potentialId}`;
+      const specialId_C = (translation_B || notes_D) ? potentialId : ""; 
+
+      output_NPC.push([
+           final_displayId_A, translation_B, specialId_C, notes_D,
+           jpText_E, enjpText_F, speakerNames_G, fullId_H
+      ]);
+    }
+
+    // --- Phase 4: [V1.3] Write & Format (A1:Z3 Refactor) ---
+    
+    let totalRowsWritten = 0;
+    if (output_NPC.length === 0) {
+        Logger.log("[NPC Lib] ไม่พบข้อมูล NPC ที่ตรงเงื่อนไข");
+    }
+
+    let targetSheet = ss.getSheetByName(V3_NPC_TARGET);
+    if (!targetSheet) {
+      targetSheet = ss.insertSheet(V3_NPC_TARGET);
+    }
+
+    // --- [START REFACTOR V1.3: A1:Z3 Freeze Logic] ---
+    
+    // 1. [เพิ่ม] สำรอง "ข้อมูล" (Data) A1:Z3 (Data-Only)
+    const headerData = targetSheet.getRange("A1:Z3").getValues();
+
+    // 2. [คงไว้] ล้างชีตทั้งหมด (ข้อมูล และ Format)
+    targetSheet.clear();
+    
+    // 3. [คงไว้] เขียน "ข้อมูลหลัก" (แถว 4+)
+    const fullOutput = header.concat(output_NPC);
+    targetSheet.getRange(4, 1, fullOutput.length, 8).setValues(fullOutput);
+    totalRowsWritten = output_NPC.length;
+
+    // 4. [เพิ่ม] กู้คืน "ข้อมูล" (Data) A1:Z3
+    targetSheet.getRange("A1:Z3").setValues(headerData);
+    
+    // 5. [คงไว้] เรียก "เครื่องยนต์ V12" (FIX-A2)
+    // (V12 Engine จะ "ทาสี" A1:Z3 ที่เราเพิ่งกู้คืน...
+    // ...และ "ตรึงแถว" (ตาม Config) ให้ "อัตโนมัติ")
+    applyStandardWspFormatting(targetSheet);
+    
+    // --- [END REFACTOR] ---
+    
+    // --- Phase 5: Cleanup ---
+    // (ไม่มีชีตย่อยให้ล้าง)
+    // (V1.2: อัปเดต Log)
+    Logger.log(`[NPC Lib] โมดูล NPC V1.2 "Full Fix" สร้างเสร็จสมบูรณ์!\n- สร้างข้อมูลนิ่ง ${totalRowsWritten} แถว\n- ลงในชีต ${V3_NPC_TARGET}\n- ผสานข้อมูลแปลเดิม (C) ${lifeboatMap.size} + (H) ${anchorMap.size} รายการ`);
+
+    // (คืนค่าผลลัพธ์ให้ตัวเรียกใช้)
+    return {
+      success: true,
+      rowsWritten: totalRowsWritten,
+      sheets: [V3_NPC_TARGET],
+      cKeyCount: lifeboatMap.size,
+      hKeyCount: anchorMap.size
+    };
+
+  } catch (e) {
+    Logger.log(`[NPC Lib] เกิดข้อผิดพลาดร้ายแรง: ${e.message}`);
+    // (คืนค่าผลลัพธ์แบบล้มเหลว)
+    return {
+      success: false,
+      error: e.message
+    };
+  }
+}
