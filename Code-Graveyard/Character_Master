@@ -1,0 +1,121 @@
+/**
+ * ===============================================================
+ * Project: Character_Master (Main Module for UG_BE)
+ * ณ: 2025-11-16 21:15
+ * ===============================================================
+ * สถานะ: V2.0 - Categorization Engine Installed
+ * ภารกิจ: ทำหน้าที่เป็นโมดูลหลักในการจัดการ "FF7Universe_Glossary_BE"
+ *
+ * === Changelog ===
+ * V2.0 (2025-11-16):
+ * - (FEATURE) เพิ่มโมดูล "สืบสวน 3LID" (runCategorizationEngine)
+ * - (FEATURE) เพิ่ม UI เมนู "⚙️ UG-BE Master Tools" (onOpen)
+ *
+ * V1.0 (2025-11-16):
+ * - (INIT) สร้างไฟล์โปรเจกต์หลัก
+ * ===============================================================
+ */
+
+// --- (กรุณาตั้งค่าชื่อชีตเป้าหมายตรงนี้) ---
+const TARGET_SHEET_NAME = 'FF7Universe_Glossary_BE';
+// ---------------------------------
+
+/**
+ * (UI) สร้างเมนูในแถบเครื่องมือเมื่อเปิดไฟล์
+ */
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu('⚙️ UG-BE Master Tools')
+    .addItem('1. (สืบสวน) จัดหมวดหมู่อัตโนมัติ', 'runCategorizationEngine')
+    .addSeparator()
+    .addItem('2. (เชื่อมโยง) จัดการ Alias (เร็วๆ นี้)', 'runAliasLinker_stub')
+    .addToUi();
+}
+
+/**
+ * (STUB) ฟังก์ชันตัวอย่างสำหรับอนาคต
+ */
+function runAliasLinker_stub() {
+  SpreadApp.getUi().alert('ฟังก์ชันเชื่อมโยง Alias (เช่น ？？？？ -> ディオ) กำลังรอการ "ปลุกปั้น" ในขั้นตอนต่อไปค่ะ!');
+}
+
+/**
+ * ===============================================================
+ * โมดูลที่ 1: เครื่องมือสืบสวนและจัดหมวดหมู่อัตโนมัติ
+ * (Categorization Engine)
+ * ===============================================================
+ * ภารกิจ: อ่าน "ผลึก" 596 รายการ
+ * "สืบสวน" คอลัมน์ 3LID และเติมคอลัมน์ Category ให้อัตโนมัติ
+ * เพื่อประหยัดเวลางาน Manual ของนายท่าน
+ */
+function runCategorizationEngine() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(TARGET_SHEET_NAME);
+
+  if (!sheet) {
+    ui.alert(`ไม่พบชีตเป้าหมาย "${TARGET_SHEET_NAME}" ค่ะ\nกรุณานำเข้า "ผลึก" 596 รายการ และตั้งชื่อชีตให้ถูกต้องก่อนนะคะ`);
+    return;
+  }
+
+  // --- 1. ค้นหาตำแหน่งคอลัมน์ (แบบมืออาชีพ) ---
+  const headers = sheet.getRange('1:1').getValues()[0];
+  const lidColIndex = headers.indexOf('3LID');
+  const catColIndex = headers.indexOf('Category');
+
+  if (lidColIndex === -1 || catColIndex === -1) {
+    ui.alert('เกิดข้อผิดพลาด: ไม่พบคอลัมน์ "3LID" หรือ "Category" ในชีตค่ะ');
+    return;
+  }
+
+  // --- 2. สร้าง "ลายแทง" (3LID Map) ---
+  const CATEGORY_MAP = {
+    // ตัวละครหลัก
+    'art': 'MAIN', 'blt': 'MAIN', 'cat': 'MAIN', 'cid': 'MAIN',
+    'cld': 'MAIN', 'red': 'MAIN', 'tif': 'MAIN', 'vin': 'MAIN', 'yfi': 'MAIN',
+    // ตัวร้าย / Shinra
+    'eln': 'ANTAGONIST', 'hjo': 'ANTAGONIST', 'hyd': 'ANTAGONIST', 'lud': 'ANTAGONIST',
+    'ner': 'ANTAGONIST', 'plm': 'ANTAGONIST', 'pre': 'ANTAGONIST', 'rch': 'ANTAGONIST',
+    'ren': 'ANTAGONIST', 'ruf': 'ANTAGONIST', 'scr': 'ANTAGONIST', 'sep': 'ANTAGONIST', 'tsu': 'ANTAGONIST',
+    // ตัวละครสนับสนุน (Avalanche, Zack, etc.)
+    'big': 'SUPPORT', 'csn': 'SUPPORT', 'jec': 'SUPPORT', 'riv': 'SUPPORT',
+    'wed': 'SUPPORT', 'zax': 'SUPPORT',
+    // NPC เนื้อเรื่องสำคัญ
+    'bgh': 'NPC_STORY', 'brn': 'NPC_STORY', 'clm': 'NPC_STORY', 'csn': 'NPC_STORY',
+    'dio': 'NPC_STORY', 'dyn': 'NPC_STORY', 'efa': 'NPC_STORY', 'elm': 'NPC_STORY',
+    'gjy': 'NPC_STORY', 'jny': 'NPC_STORY', 'mrn': 'NPC_STORY', 'mug': 'NPC_STORY',
+    'snn': 'NPC_STORY', 'zng': 'NPC_STORY',
+    // NPC ทั่วไป (แยกเพศ/วัย)
+    'mfa': 'NPC_GENERIC', 'mfk': 'NPC_GENERIC', 'mma': 'NPC_GENERIC',
+    'mmk': 'NPC_GENERIC', 'sfa': 'NPC_GENERIC', 'sma': 'NPC_GENERIC',
+    // อื่นๆ
+    'anm': 'ANIMAL',
+    'chd': 'NPC_QST', // Chadley
+    'gil': 'SYSTEM', // Gilgamesh
+    'msg': 'SYSTEM', // MAI
+    'mnt': 'NPC_STORY' // Black Robes
+  };
+
+  // --- 3. เริ่มกระบวนการสืบสวน ---
+  ui.showModalDialog(HtmlService.createHtmlOutput('<b>กำลังสืบสวน 3LID...</b><br>กรุณารอสักครู่...'), 'Categorization Engine');
+  
+  const numRows = sheet.getLastRow() - 1;
+  if (numRows <= 0) {
+    ui.alert('ไม่พบข้อมูลในชีตค่ะ');
+    return;
+  }
+  
+  const lidData = sheet.getRange(2, lidColIndex + 1, numRows, 1).getValues();
+  const categories = [];
+
+  for (const row of lidData) {
+    const lid = row[0];
+    const category = CATEGORY_MAP[lid] || 'UNCATEGORIZED'; // ถ้าไม่รู้จัก ให้ติดป้ายไว้
+    categories.push([category]);
+  }
+
+  // --- 4. เขียนผลลัพธ์ลงคอลัมน์ Category ---
+  sheet.getRange(2, catColIndex + 1, numRows, 1).setValues(categories);
+
+  ui.alert(`"สืบสวน 3LID" สำเร็จ!\n\nจัดหมวดหมู่ ${numRows} รายการโดยอัตโนมัติเรียบร้อยแล้วค่ะ\n\n(กรุณาตรวจสอบรายการที่เป็น "UNCATEGORIZED" ด้วยนะคะ)`);
+}
