@@ -1,4 +1,10 @@
 <!DOCTYPE html>
+<!-- 
+  Gemini Chat: 🖥️ FF7 Rebirth Glossary UI Workbench
+  File: Code.gs (Server-Side Logic)
+  สถานะ: V1.0 "Sidebar Search"
+  ณ: 2025-11-25 03:25 โดย Gemini
+-->
 <html>
 <head>
   <base target="_top">
@@ -6,8 +12,9 @@
   <style>
     body { padding: 10px; font-family: sans-serif; background: #f8f9fa; font-size: 13px; }
     
-    #initLoader { text-align: center; padding: 20px; color: #555; display: none; } /* เพิ่ม display: none; เพื่อซ่อนตัวโหลด */
-    #mainApp { display: block; } /* เปลี่ยนจาก none เป็น block เพื่อโชว์ UI ทันที */
+    /* Sandbox Mode: Show UI immediately, Hide Loader */
+    #initLoader { text-align: center; padding: 20px; color: #555; display: none; }
+    #mainApp { display: block; } 
 
     /* Top Bar */
     .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -26,7 +33,7 @@
     .result-item:hover { background-color: #e8f0fe; }
 
     /* Editor */
-    .editor-card { background: white; border: 1px solid #ccc; padding: 10px; border-radius: 4px; opacity: 0.6; pointer-events: none; transition: opacity 0.3s; }
+    .editor-card { background: white; border: 1px solid #ccc; padding: 10px; border-radius: 4px; opacity: 1; pointer-events: auto; }
     .info-row { display: flex; justify-content: space-between; color: #666; font-size: 11px; margin-bottom: 5px; }
     
     /* Source Box */
@@ -57,7 +64,10 @@
     .btn-save-next:hover { background: #0a6b38; }
     .btn-save:disabled, .btn-save-next:disabled { background: #ccc; cursor: not-allowed; }
 
+    /* Google Buttons */
     .btn-google { background: #db4437; color: white; border: none; border-radius: 3px; padding: 2px 6px; font-size: 10px; cursor: pointer; }
+    .btn-trans { background: #4285f4; color: white; border: none; border-radius: 3px; padding: 2px 6px; font-size: 10px; cursor: pointer; }
+    .btn-trans:hover { background: #3367d6; }
     
     /* Metric Tools */
     .metric-tools { display: flex; gap: 5px; margin-bottom: 10px; }
@@ -83,7 +93,7 @@
 <body>
 
   <div class="top-bar">
-    <span class="app-title">Translator Workbench (V.Final)</span>
+    <span class="app-title">Translator Workbench (V.Sandbox)</span>
     <span id="liveClock" class="live-clock">--:--</span>
   </div>
 
@@ -95,15 +105,20 @@
   <div id="mainApp">
     
     <div class="filter-section">
-      <div style="font-weight:bold; font-size:11px; color:#1565c0;">🏁 Filter Navigation</div>
+      
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+        <div style="font-weight:bold; font-size:11px; color:#1565c0;">Filter Navigation</div>
+        <div style="font-weight:bold; font-size:11px; color:#666;">
+          Active items: <span id="countDisplay">0</span>
+        </div>
+      </div>
+
       <div class="filter-controls">
         <select id="filCat1" onchange="applyFilter()"><option value="">All Cat 1</option></select>
         <select id="filCat2" onchange="applyFilter()"><option value="">All Cat 2</option></select>
         <select id="filCat3" onchange="applyFilter()"><option value="">All Cat 3</option></select>
       </div>
-      <div style="margin-top:5px; font-size:10px; text-align:right; color:#666;">
-        Active items: <span id="countDisplay">0</span>
-      </div>
+
     </div>
 
     <div class="search-box">
@@ -116,7 +131,11 @@
       <div class="info-row">
         <span>ID: <b id="showID" style="font-size:14px; color:#1a73e8;">-</b></span>
         <span>Row: <span id="showRow">-</span></span>
-        <button class="btn-google" onclick="googleSearch()">G Search</button>
+        
+        <div style="display:flex; gap:3px;">
+            <button id="btnTransTop" class="btn-trans" onclick="openTransPopup()" style="display:none;">G Trans</button>
+            <button class="btn-google" onclick="googleSearch()">G Search</button>
+        </div>
       </div>
 
       <div class="source-box" style="margin-top: 5px;">
@@ -136,10 +155,6 @@
         <span class="label-mini">🇺🇸 Name US</span>
         <span class="source-text" id="showUS" style="color:#1a73e8;">-</span>
 
-        <div style="height:5px"></div>
-        <span class="label-mini">Context / General Note (Read)</span>
-        <div id="showContext" class="sub-info" style="font-style:italic;">-</div>
-        <div id="showGenNote" class="sub-info">-</div>
       </div>
 
       <div class="form-group">
@@ -193,11 +208,11 @@
 
       <div class="form-group">
         <span class="label-mini">Translator Context (Edit)</span>
-        <textarea id="edtContext" rows="2"></textarea>
+        <textarea id="edtContext" rows="1"></textarea>
       </div>
       <div class="form-group">
         <span class="label-mini">General Note (Edit)</span>
-        <textarea id="edtGenNote" rows="2"></textarea>
+        <textarea id="edtGenNote" rows="1"></textarea>
       </div>
 
       <div class="btn-nav-row">
@@ -214,7 +229,13 @@
     </div>
 
     <div class="refresh-zone">
-      <button class="btn-refresh" onclick="refreshData()">🔄 โหลดข้อมูลล่าสุด (Refresh Data)</button>
+      <button class="btn-refresh" style="background:#0b8043; margin-bottom:5px;" onclick="syncFromSheet()">
+        📥 ดึงข้อมูลจากเซลล์ที่เลือก (Load Selected)
+      </button>
+      
+      <button class="btn-refresh" onclick="refreshData()">
+        🔄 โหลดข้อมูลล่าสุด (Refresh Data)
+      </button>
     </div>
 
   </div>
@@ -230,7 +251,7 @@
     // 1. Initialization
     document.addEventListener('DOMContentLoaded', function() {
       startClock(); 
-      // refreshData();  <--- ใส่ // เพื่อปิดการโหลดออโต้ครับ
+      // refreshData(); // SANDBOX MODE: Manual load only
     });
 
     // === Clock Function ===
@@ -252,6 +273,7 @@
     }
 
     function refreshData() {
+      // Manual Load: Show loader now
       document.getElementById('mainApp').style.display = 'none';
       var loader = document.getElementById('initLoader');
       loader.style.display = 'block';
@@ -290,10 +312,6 @@
       document.getElementById('initLoader').style.display = 'none';
       document.getElementById('mainApp').style.display = 'block';
       
-      var editor = document.getElementById('editorCard');
-      editor.style.opacity = '1';
-      editor.style.pointerEvents = 'auto';
-
       applyFilter();
       if(FILTERED_DB.length > 0) loadIndex(0);
       
@@ -367,7 +385,6 @@
 
     function jumpToItem(id) {
       var inCurrent = FILTERED_DB.findIndex(x => x.id === id);
-      
       if (inCurrent === -1) {
         document.getElementById('filCat1').value = "";
         document.getElementById('filCat2').value = "";
@@ -396,8 +413,16 @@
       document.getElementById('showENJP').textContent = data.enjp || "-";
       document.getElementById('showJP').textContent = data.jp || "-";
       document.getElementById('showUS').textContent = data.us || "-";
-      document.getElementById('showContext').textContent = data.context || "-";
-      document.getElementById('showGenNote').textContent = data.genNote || "-";
+      //document.getElementById('showContext').textContent = data.context || "-";
+      //document.getElementById('showGenNote').textContent = data.genNote || "-";
+
+      // 🛡️ Logic ปุ่ม Translate (โชว์เมื่อมีชื่อ JP)
+      var btnTr = document.getElementById('btnTransTop');
+      if (data.jp && data.jp !== "-" && data.jp.trim() !== "") {
+         btnTr.style.display = "block";
+      } else {
+         btnTr.style.display = "none";
+      }
 
       var aliasText = "-";
       if(data.alias) {
@@ -424,6 +449,8 @@
       document.getElementById('edtM_EE').value = data.m_ee || "";
       document.getElementById('edtM_TI').value = data.m_ti || "";
       document.getElementById('edtM_PE').value = data.m_pe || "";
+      // ✅ [เพิ่มบรรทัดนี้] สั่งให้ Sheet วิ่งไปไฮไลท์แถวที่ตรงกับ data.rowIndex
+      google.script.run.withFailureHandler(function(e){}).highlightSheetRow(data.rowIndex);
     }
 
     function navigate(action) {
@@ -439,12 +466,10 @@
       }
     }
 
-    // ✅ Modified saveData function
     function saveData(autoNext) {
       if(CURRENT_INDEX === -1) return;
       var d = FILTERED_DB[CURRENT_INDEX];
       
-      // ดึงเวลาจาก Client UI
       var now = new Date();
       var clientTimeStr = now.toLocaleDateString('th-TH') + " " + now.toLocaleTimeString('th-TH');
 
@@ -469,14 +494,11 @@
           m_ti: document.getElementById('edtM_TI').value,
           m_pe: document.getElementById('edtM_PE').value,
           
-          clientTime: clientTimeStr // ส่งเวลาไปด้วย
+          clientTime: clientTimeStr 
       };
       
-      // Control Buttons
       var btnSave = document.querySelector('.btn-save');
       var btnSaveNext = document.querySelector('.btn-save-next');
-      
-      var originalText = autoNext ? "Save & Next >" : "Save";
       var activeBtn = autoNext ? btnSaveNext : btnSave;
       
       activeBtn.textContent = "Saving...";
@@ -487,19 +509,13 @@
         .withSuccessHandler(function(res) { 
            Object.assign(d, payload);
            d.lastUp = clientTimeStr; 
-           
            showToast("Saved!");
-           
-           // Reset Buttons
            btnSave.textContent = "Save";
            btnSaveNext.textContent = "Save & Next >";
            btnSave.disabled = false;
            btnSaveNext.disabled = false;
 
-           // ✅ Logic Save & Next
-           if (autoNext) {
-             navigate(1);
-           }
+           if (autoNext) navigate(1);
         })
         .withFailureHandler(function(e) { 
            showToast("Error: " + e.message, true);
@@ -511,13 +527,41 @@
         .saveTranslation(payload);
     }
 
+    // --- Google Tools (Popups with Center Screen) ---
+
     function googleSearch() {
       var jp = document.getElementById('showJP').textContent;
       var us = document.getElementById('showUS').textContent;
       if(jp === '-' && us === '-') return;
-      var q = `Final Fantasy VII Rebirth ${jp !== '-' ? jp : ''} ${us !== '-' ? us : ''}`;
-      window.open('https://www.google.com/search?q=' + encodeURIComponent(q), '_blank');
+      
+      var q = `Final Fantasy VII Rebirth Wiki ${jp !== '-' ? jp : ''} ${us !== '-' ? us : ''}`;
+      var url = 'https://www.google.com/search?q=' + encodeURIComponent(q);
+      
+      // Calculate Center Position for 900x800
+      var w = 900;
+      var h = 800;
+      var left = (screen.width - w) / 2;
+      var top = (screen.height - h) / 2;
+
+      window.open(url, 'gsearch_popup', `width=${w},height=${h},top=${top},left=${left},scrollbars=yes,resizable=yes`);
     }
+
+    function openTransPopup() {
+      var jpName = document.getElementById('showJP').textContent;
+      if (!jpName || jpName === '-' || jpName.trim() === '') return;
+
+      var url = 'https://translate.google.com/?sl=ja&tl=th&text=' + encodeURIComponent(jpName) + '&op=translate';
+      
+      // Calculate Center Position for 500x600
+      var w = 500;
+      var h = 600;
+      var left = (screen.width - w) / 2;
+      var top = (screen.height - h) / 2;
+
+      window.open(url, 'gtrans_popup', `width=${w},height=${h},top=${top},left=${left},scrollbars=yes,resizable=yes`);
+    }
+
+    // --- Metrics Tools ---
 
     function copyMetrics() {
       METRIC_CLIPBOARD.F = document.getElementById('edtM_F').value;
@@ -545,6 +589,25 @@
       window.toastTimeout = setTimeout(function(){ 
           t.className = t.className.replace("show", ""); 
       }, 3000);
+    }
+    // --- Manual Sync Logic ---
+    function syncFromSheet() {
+       // เรียกใช้ฟังก์ชันเดิมใน Code.gs ที่เราเตรียมไว้
+       google.script.run.withSuccessHandler(function(activeId) {
+          if (activeId) {
+            // ถ้าเจอ ID ในแถวนั้น ให้กระโดดไปเลย
+            // เช็คก่อนว่า ID นี้มีในระบบไหม
+            var exists = DB.find(x => x.id === activeId);
+            if(exists) {
+               jumpToItem(activeId);
+               showToast("Synced to: " + activeId);
+            } else {
+               showToast("ไม่พบข้อมูล ID: " + activeId + " ในระบบ", true);
+            }
+          } else {
+            showToast("ไม่พบ ID ในแถวที่เลือก (กรุณาคลิกในตารางข้อมูล)", true);
+          }
+       }).getActiveSelectionId();
     }
 
   </script>
