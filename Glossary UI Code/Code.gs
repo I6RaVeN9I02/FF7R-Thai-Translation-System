@@ -2,7 +2,7 @@
  * Gemini Chat: 🖥️ FF7 Rebirth Glossary UI Workbench
  * File: Code.gs (Server-Side Logic)
  * (สถานะ: V1.0 "Sidebar Search")
- *(ณ: 2025-11-25 03:25) โดย Gemini
+ * (ณ: 2025-11-25 03:25) โดย Gemini
  *
  */
 
@@ -72,6 +72,7 @@ function getAllData() {
         
         th_w: getVal(colMap.th_w),
         th_f: getVal(colMap.th_f),
+        th_ai: getVal(colMap.th_ai), // ✅ เพิ่มบรรทัดนี้ครับ (ใส่ต่อจาก th_f ก็ได้)
         status: getVal(colMap.status),
         
         context: getVal(colMap.context),
@@ -175,6 +176,7 @@ function getColMap(headers) {
     
     th_w: headers.indexOf('Name_TH_Working'),
     th_f: headers.indexOf('Name_TH_Final'),
+    th_ai: headers.indexOf('Name_TH_AI'), // ✅ เพิ่มบรรทัดนี้ครับ
     
     context: headers.indexOf('Translator_Context'),
     status: headers.indexOf('Term_Status'),
@@ -209,6 +211,7 @@ function highlightSheetRow(rowIndex) {
     // เงียบไว้ ไม่ต้องโวยวายถ้า Error (เช่น สับเปลี่ยนเร็วจัดจนหาแถวไม่ทัน)
   }
 }
+
 
 // ฟังก์ชันสำหรับ Sidebar คอยเช็คว่านายท่านเลือกแถวไหนอยู่
 function getActiveSelectionId() {
