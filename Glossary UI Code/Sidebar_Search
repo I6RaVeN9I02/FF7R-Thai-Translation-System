@@ -1,21 +1,9 @@
 <!DOCTYPE html>
 <!-- 
   Gemini Chat: 🖥️ FF7 Rebirth Glossary UI Workbench
-  File: Code.gs (Server-Side Logic)
-  สถานะ: V1.0 "Sidebar Search"
-  ณ: 2025-11-25 18:30 โดย RaVeN
--->
-<html>
-<head>
-  <base target="_top">
-  <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/styles.css">
-  <style>
-    body { padding: 10px; font-family: sans-serif;<!DOCTYPE html>
-<!-- 
-  Gemini Chat: 🖥️ FF7 Rebirth Glossary UI Workbench
   File: Sidebar_Search.html (Server-Side Logic)
   สถานะ: V1.0 "Sidebar Search"
-  ณ: 2025-11-25 03:25 โดย Gemini
+  ณ: 2025-11-25 22:42 โดย RaVeN
 -->
 <html>
 <head>
@@ -31,7 +19,7 @@
     /* Top Bar */
     .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .app-title { font-weight: bold; color: #444; font-size: 12px; }
-    .live-clock { font-size: 11px; color: #1a73e8; font-weight: bold; background: #e8f0fe; padding: 2px 6px; border-radius: 4px; border: 1px solid #d2e3fc;}
+    .live-clock { font-size: 12px; color: #1a73e8; font-weight: bold; background: #e8f0fe; padding: 4px 10px; border-radius: 4px; border: 1px solid #d2e3fc;}
 
     /* Filter */
     .filter-section { background: #e3f2fd; padding: 8px; border-radius: 4px; margin-bottom: 10px; border: 1px solid #90caf9; }
@@ -83,8 +71,8 @@
     
     /* Metric Tools */
     .metric-tools { display: flex; gap: 5px; margin-bottom: 10px; }
-    .btn-copy { background: #e8eaed; color: #333; border: 1px solid #ccc; border-radius: 3px; padding: 6px; font-size: 11px; cursor: pointer; flex: 1; font-weight:bold; }
-    .btn-paste { background: #fbbc04; color: #333; border: 1px solid #e0a800; border-radius: 3px; padding: 6px; font-size: 11px; cursor: pointer; flex: 1; font-weight:bold; }
+    .btn-copy { background: #e8eaed; color: #333; border: 1px solid #ccc; border-radius: 2px; padding: 6px; font-size: 10px; cursor: pointer; flex: 1; font-weight:bold; }
+    .btn-paste { background: #fbbc04; color: #333; border: 1px solid #e0a800; border-radius: 2px; padding: 6px; font-size: 10px; cursor: pointer; flex: 1; font-weight:bold; }
 
     /* Refresh Button */
     .refresh-zone { margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd; text-align: center; }
@@ -103,11 +91,11 @@
 
     /* ปุ่ม Refresh ด้านบน (แทน Title เดิม) */
     .btn-top-refresh {
-      background: #f1f3f4; border: 1px solid #ccc; 
-      color: #444; font-weight: bold; font-size: 11px;
+      background: #d4edbc; border: 1px solid #ccc; 
+      color: #11734b; font-weight: bold; font-size: 12px;
       padding: 4px 10px; border-radius: 4px; cursor: pointer;
     }
-    .btn-top-refresh:hover { background: #e8eaed; color: #000; }
+    .btn-top-refresh:hover { background: #11734b; color: #d4edbc; }
 
     /* ปุ่ม Paste เล็กในช่อง Alias */
     .btn-paste-mini {
@@ -127,7 +115,7 @@
 
   <div class="top-bar">
     <button class="btn-top-refresh" onclick="refreshData()">
-      🔄 โหลดข้อมูล (Refresh)
+      🔄 โหลดข้อมูล
     </button>
     <span id="liveClock" class="live-clock">--:--</span>
   </div>
@@ -183,7 +171,11 @@
         <div style="height:5px"></div>
         
         <span class="label-mini">🇯🇵 Name JP</span>
-        <span class="source-text" id="showJP" style="color:#d32f2f;">-</span>
+        <span class="source-text id-clickable" id="showJP" style="color:#d32f2f;" 
+              onclick="copyAndRomaji()" 
+              title="คลิกเพื่อ: คัดลอก & เปิด RomajiDesu">
+              -
+        </span>
         
         <div style="height:5px"></div>
 
@@ -228,8 +220,8 @@
           <div class="metric-col"><div class="metric-label">PE</div><input type="text" id="edtM_PE" class="metric-input"></div>
         </div>
         <div class="metric-tools">
-          <button class="btn-copy" onclick="copyMetrics()">📋 Copy Metrics</button>
-          <button class="btn-paste" onclick="pasteMetrics()">📂 Paste Metrics</button>
+          <button class="btn-copy" onclick="copyMetrics()">Copy Metrics</button>
+          <button class="btn-paste" onclick="pasteMetrics()">Paste Metrics</button>
         </div>
       </div>
 
@@ -258,10 +250,10 @@
       </div>
 
       <div class="btn-nav-row">
-        <button class="btn-nav" onclick="navigate('first')">|&lt;</button>
-        <button class="btn-nav" onclick="navigate(-1)">&lt;</button>
-        <button class="btn-nav" onclick="navigate(1)">&gt;</button>
-        <button class="btn-nav" onclick="navigate('last')">&gt;|</button>
+        <button class="btn-nav" onclick="navigate('first')">&lt;&lt;</button>
+        <button class="btn-nav" onclick="navigate(-1)">&lt; Prev</button>
+        <button class="btn-nav" onclick="navigate(1)">Next &gt;</button>
+        <button class="btn-nav" onclick="navigate('last')">&gt;&gt;</button>
       </div>
       <div class="btn-action-row">
         <button class="btn-save" onclick="saveData(false)">Save</button>
@@ -596,7 +588,7 @@
       
       // Calculate Center Position for 500x600
       var w = 500;
-      var h = 600;
+      var h = 650;
       var left = (screen.width - w) / 2;
       var top = (screen.height - h) / 2;
 
@@ -695,607 +687,30 @@
         document.getElementById('edtAlias').focus(); 
       });
     }
-    
-  </script>
-</body>
-</html> background: #f8f9fa; font-size: 13px; }
-    
-    /* Sandbox Mode: Show UI immediately, Hide Loader */
-    #initLoader { text-align: center; padding: 20px; color: #555; display: none; }
-    #mainApp { display: block; } 
 
-    /* Top Bar */
-    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .app-title { font-weight: bold; color: #444; font-size: 12px; }
-    .live-clock { font-size: 11px; color: #1a73e8; font-weight: bold; background: #e8f0fe; padding: 2px 6px; border-radius: 4px; border: 1px solid #d2e3fc;}
-
-    /* Filter */
-    .filter-section { background: #e3f2fd; padding: 8px; border-radius: 4px; margin-bottom: 10px; border: 1px solid #90caf9; }
-    .filter-controls { display: flex; gap: 5px; margin-top: 5px; }
-    select { font-size: 11px; width: 100%; }
-
-    /* Search */
-    .search-box { display: flex; gap: 5px; margin-bottom: 10px; }
-    .search-results { max-height: 150px; overflow-y: auto; background: white; border: 1px solid #ddd; display: none; margin-bottom: 10px; }
-    .result-item { padding: 6px; border-bottom: 1px solid #eee; cursor: pointer; }
-    .result-item:hover { background-color: #e8f0fe; }
-
-    /* Editor */
-    .editor-card { background: white; border: 1px solid #ccc; padding: 10px; border-radius: 4px; opacity: 1; pointer-events: auto; }
-    .info-row { display: flex; justify-content: space-between; color: #666; font-size: 11px; margin-bottom: 5px; }
-    
-    /* Source Box */
-    .source-box { background: #f1f3f4; padding: 8px; border-radius: 4px; margin-bottom: 10px; }
-    .source-text { font-weight: bold; display: block; margin-bottom: 4px; }
-    .label-mini { font-size: 10px; color: #5f6368; text-transform: uppercase; display: block; margin-bottom: 2px; }
-    .sub-info { font-size: 11px; color: #444; margin-bottom: 4px; }
-
-    .cat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 10px; }
-    .form-group { margin-bottom: 8px; }
-    input, select, textarea { padding: 5px; border: 1px solid #ddd; border-radius: 3px; width: 100%; box-sizing: border-box; }
-    
-    /* Metrics Grid */
-    .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 5px; }
-    .metric-col { text-align: center; }
-    .metric-label { font-size: 10px; font-weight: bold; color: #555; margin-bottom: 2px; }
-    .metric-input { text-align: center; font-size: 11px; padding: 4px !important; background: #fff; } 
-
-    /* Control Buttons Layout (Redesigned) */
-    .btn-nav-row { display: flex; gap: 4px; margin-top: 15px; margin-bottom: 5px; }
-    .btn-nav { flex: 1; background: #f1f3f4; border: 1px solid #ccc; cursor: pointer; border-radius: 3px; font-size: 10px; font-weight: bold; padding: 4px; color: #555; }
-    .btn-nav:hover { background: #e8eaed; }
-
-    .btn-action-row { display: flex; gap: 5px; }
-    .btn-save { flex: 1; background: #1a73e8; color: white; font-weight: bold; border: none; padding: 8px; border-radius: 3px; cursor: pointer; font-size: 12px; }
-    .btn-save-next { flex: 1.2; background: #0b8043; color: white; font-weight: bold; border: none; padding: 8px; border-radius: 3px; cursor: pointer; font-size: 12px; }
-    .btn-save:hover { background: #1558b0; }
-    .btn-save-next:hover { background: #0a6b38; }
-    .btn-save:disabled, .btn-save-next:disabled { background: #ccc; cursor: not-allowed; }
-
-    /* Google Buttons */
-    .btn-google { background: #db4437; color: white; border: none; border-radius: 3px; padding: 2px 6px; font-size: 10px; cursor: pointer; }
-    .btn-trans { background: #4285f4; color: white; border: none; border-radius: 3px; padding: 2px 6px; font-size: 10px; cursor: pointer; }
-    .btn-trans:hover { background: #3367d6; }
-    
-    /* Metric Tools */
-    .metric-tools { display: flex; gap: 5px; margin-bottom: 10px; }
-    .btn-copy { background: #e8eaed; color: #333; border: 1px solid #ccc; border-radius: 3px; padding: 6px; font-size: 11px; cursor: pointer; flex: 1; font-weight:bold; }
-    .btn-paste { background: #fbbc04; color: #333; border: 1px solid #e0a800; border-radius: 3px; padding: 6px; font-size: 11px; cursor: pointer; flex: 1; font-weight:bold; }
-
-    /* Refresh Button */
-    .refresh-zone { margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd; text-align: center; }
-    .btn-refresh { background-color: #666; color: white; width: 100%; padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
-    .btn-refresh:hover { background-color: #444; }
-    
-    /* TOAST */
-    #toast { 
-        position: fixed; bottom: 10px; right: 10px; 
-        background: #333; color: white; padding: 8px 12px; 
-        border-radius: 4px; display: none; font-size: 12px; 
-        opacity: 0; border: 1px solid #fff; z-index: 9999;
-        transition: opacity 0.5s;
-    }
-    #toast.show { display: block; opacity: 1; }
-  </style>
-</head>
-<body>
-
-  <div class="top-bar">
-    <span class="app-title">Translator Workbench (V.Sandbox)</span>
-    <span id="liveClock" class="live-clock">--:--</span>
-  </div>
-
-  <div id="initLoader">
-    <h3>⏳ กำลังโหลดฐานข้อมูล...</h3>
-    <p>กำลังเชื่อมต่อกับ Google Sheets...</p>
-  </div>
-
-  <div id="mainApp">
-    
-    <div class="filter-section">
+    // --- Special Function: Copy JP & Open Romaji ---
+    function copyAndRomaji() {
+      var text = document.getElementById('showJP').textContent;
       
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-        <div style="font-weight:bold; font-size:11px; color:#1565c0;">Filter Navigation</div>
-        <div style="font-weight:bold; font-size:11px; color:#666;">
-          Active items: <span id="countDisplay">0</span>
-        </div>
-      </div>
+      // Safety Check: ถ้าไม่มีข้อมูล หรือเป็นขีด - ให้จบการทำงาน
+      if (!text || text === '-' || text.trim() === '') return;
 
-      <div class="filter-controls">
-        <select id="filCat1" onchange="applyFilter()"><option value="">All Cat 1</option></select>
-        <select id="filCat2" onchange="applyFilter()"><option value="">All Cat 2</option></select>
-        <select id="filCat3" onchange="applyFilter()"><option value="">All Cat 3</option></select>
-      </div>
+      // Action 1: สั่ง Copy เข้า Clipboard (เรียกใช้ฟังก์ชันเดิมที่เรามี)
+      copyText('showJP');
 
-    </div>
-
-    <div class="search-box">
-      <input type="text" id="searchInput" placeholder="ค้นหา (ID, Name JP/US/TH)..." onkeyup="localSearch()">
-    </div>
-    <div id="resultList" class="search-results"></div>
-
-    <div class="editor-card" id="editorCard">
+      // Action 2: เปิด Popup RomajiDesu (จัดกึ่งกลางหน้าจอ)
+      // หมายเหตุ: RomajiDesu ปกติรับค่าผ่าน URL ยากหน่อย แต่เราเปิดหน้าเว็บรอไว้ให้วางได้เลย
+      var url = 'https://www.romajidesu.com/translator';
       
-      <div class="info-row">
-        <span>ID: <b id="showID" style="font-size:14px; color:#1a73e8;">-</b></span>
-        <span>Row: <span id="showRow">-</span></span>
-        
-        <div style="display:flex; gap:3px;">
-            <button id="btnTransTop" class="btn-trans" onclick="openTransPopup()" style="display:none;">G Trans</button>
-            <button class="btn-google" onclick="googleSearch()">G Search</button>
-        </div>
-      </div>
-
-      <div class="source-box" style="margin-top: 5px;">
-        <span class="label-mini">Alias Info</span>
-        <div id="showAliasData" class="sub-info" style="color:#d32f2f; font-weight:bold;">-</div>
-
-        <span class="label-mini">3LID / Name ENJP</span>
-        <div class="sub-info"><span id="show3LID">-</span> / <span id="showENJP">-</span></div>
-
-        <div style="height:5px"></div>
-        
-        <span class="label-mini">🇯🇵 Name JP</span>
-        <span class="source-text" id="showJP" style="color:#d32f2f;">-</span>
-        
-        <div style="height:5px"></div>
-
-        <span class="label-mini">🇺🇸 Name US</span>
-        <span class="source-text" id="showUS" style="color:#1a73e8;">-</span>
-
-      </div>
-
-      <div class="form-group">
-        <span class="label-mini">Alias ID</span>
-        <input type="text" id="edtAlias">
-      </div>
-
-      <div class="cat-grid">
-        <select id="edtCat1"></select>
-        <select id="edtCat2"></select>
-        <select id="edtCat3"></select>
-      </div>
-
-      <div class="form-group">
-        <span class="label-mini">Gender</span>
-        <select id="edtGender"><option value="">-</option></select>
-      </div>
-      <div class="form-group">
-        <span class="label-mini">Age Range</span>
-        <select id="edtAge"><option value="">-</option></select>
-      </div>
-
-      <div class="form-group">
-        <span class="label-mini">Metrics (F / EE / TI / PE)</span>
-        <div class="metrics-grid">
-          <div class="metric-col"><div class="metric-label">F</div><input type="text" id="edtM_F" class="metric-input"></div>
-          <div class="metric-col"><div class="metric-label">EE</div><input type="text" id="edtM_EE" class="metric-input"></div>
-          <div class="metric-col"><div class="metric-label">TI</div><input type="text" id="edtM_TI" class="metric-input"></div>
-          <div class="metric-col"><div class="metric-label">PE</div><input type="text" id="edtM_PE" class="metric-input"></div>
-        </div>
-        <div class="metric-tools">
-          <button class="btn-copy" onclick="copyMetrics()">📋 Copy Metrics</button>
-          <button class="btn-paste" onclick="pasteMetrics()">📂 Paste Metrics</button>
-        </div>
-      </div>
-
-      <hr style="border:0; border-top:1px solid #eee; margin:10px 0;">
-
-      <div class="form-group">
-        <span class="label-mini">🇹🇭 TH Working</span>
-        <input type="text" id="edtTH_W">
-      </div>
-      <div class="form-group">
-        <span class="label-mini">🇹🇭 TH Final</span>
-        <input type="text" id="edtTH_F">
-      </div>
-      <div class="form-group">
-        <span class="label-mini">Status</span>
-        <select id="edtStatus"></select>
-      </div>
-
-      <div class="form-group">
-        <span class="label-mini">Translator Context (Edit)</span>
-        <textarea id="edtContext" rows="1"></textarea>
-      </div>
-      <div class="form-group">
-        <span class="label-mini">General Note (Edit)</span>
-        <textarea id="edtGenNote" rows="1"></textarea>
-      </div>
-
-      <div class="btn-nav-row">
-        <button class="btn-nav" onclick="navigate('first')">|&lt;</button>
-        <button class="btn-nav" onclick="navigate(-1)">&lt;</button>
-        <button class="btn-nav" onclick="navigate(1)">&gt;</button>
-        <button class="btn-nav" onclick="navigate('last')">&gt;|</button>
-      </div>
-      <div class="btn-action-row">
-        <button class="btn-save" onclick="saveData(false)">Save</button>
-        <button class="btn-save-next" onclick="saveData(true)">Save & Next &gt;</button>
-      </div>
-
-    </div>
-
-    <div class="refresh-zone">
-      <button class="btn-refresh" style="background:#0b8043; margin-bottom:5px;" onclick="syncFromSheet()">
-        📥 ดึงข้อมูลจากเซลล์ที่เลือก (Load Selected)
-      </button>
-      
-      <button class="btn-refresh" onclick="refreshData()">
-        🔄 โหลดข้อมูลล่าสุด (Refresh Data)
-      </button>
-    </div>
-
-  </div>
-  
-  <div id="toast">Saved!</div>
-
-  <script>
-    var DB = [];           
-    var FILTERED_DB = []; 
-    var CURRENT_INDEX = -1;
-    var METRIC_CLIPBOARD = { F:"", EE:"", TI:"", PE:"" }; 
-
-    // 1. Initialization
-    document.addEventListener('DOMContentLoaded', function() {
-      startClock(); 
-      // refreshData(); // SANDBOX MODE: Manual load only
-    });
-
-    // === Clock Function ===
-    function startClock() {
-        var update = function() {
-            var now = new Date();
-            var options = { 
-                weekday: 'short', 
-                day: 'numeric', 
-                month: 'short', 
-                hour: '2-digit', 
-                minute: '2-digit',
-                hour12: false
-            };
-            document.getElementById('liveClock').textContent = now.toLocaleDateString('th-TH', options);
-        };
-        update(); 
-        setInterval(update, 1000); 
-    }
-
-    function refreshData() {
-      // Manual Load: Show loader now
-      document.getElementById('mainApp').style.display = 'none';
-      var loader = document.getElementById('initLoader');
-      loader.style.display = 'block';
-      loader.innerHTML = '<h3>⏳ กำลังโหลดฐานข้อมูล...</h3><p>กรุณารอสักครู่...</p>';
-
-      google.script.run
-        .withSuccessHandler(initApp)
-        .withFailureHandler(onLoadError)
-        .getAllData();
-    }
-
-    function onLoadError(error) {
-       var loader = document.getElementById('initLoader');
-       loader.innerHTML = `
-         <h3 style="color: #d32f2f;">❌ เกิดข้อผิดพลาด</h3>
-         <div style="color: #555; margin-bottom: 10px;">${error.message}</div>
-         <button class="btn-refresh" onclick="refreshData()" style="width: auto;">ลองใหม่อีกครั้ง</button>
-       `;
-    }
-
-    function initApp(payload) {
-      DB = payload.database;
-      var opts = payload.options;
-
-      fillSelect('filCat1', opts.cat1, true);
-      fillSelect('filCat2', opts.cat2, true);
-      fillSelect('filCat3', opts.cat3, true);
-      
-      fillSelect('edtCat1', opts.cat1);
-      fillSelect('edtCat2', opts.cat2);
-      fillSelect('edtCat3', opts.cat3);
-      fillSelect('edtStatus', opts.statuses);
-      fillSelect('edtGender', opts.gender);
-      fillSelect('edtAge', opts.age);
-
-      document.getElementById('initLoader').style.display = 'none';
-      document.getElementById('mainApp').style.display = 'block';
-      
-      applyFilter();
-      if(FILTERED_DB.length > 0) loadIndex(0);
-      
-      showToast("ระบบพร้อมใช้งาน", false);
-    }
-
-    function fillSelect(elId, items, hasAll) {
-      var el = document.getElementById(elId);
-      var oldVal = el.value;
-      el.innerHTML = hasAll ? '<option value="">All</option>' : '<option value="">-</option>';
-      if(items){
-        items.forEach(function(x) {
-          el.options.add(new Option(x, x));
-        });
-      }
-      if(oldVal) el.value = oldVal;
-    }
-
-    // === 2. Logic ===
-
-    function applyFilter() {
-      var c1 = document.getElementById('filCat1').value;
-      var c2 = document.getElementById('filCat2').value;
-      var c3 = document.getElementById('filCat3').value;
-
-      FILTERED_DB = DB.filter(function(item) {
-        var match = true;
-        if (c1 && item.cat1 != c1) match = false;
-        if (c2 && item.cat2 != c2) match = false;
-        if (c3 && item.cat3 != c3) match = false;
-        return match;
-      });
-
-      document.getElementById('countDisplay').textContent = FILTERED_DB.length;
-      CURRENT_INDEX = 0;
-      if(FILTERED_DB.length > 0) {
-        loadIndex(0);
-      } else {
-        document.getElementById('showID').textContent = "-";
-      }
-    }
-
-    function localSearch() {
-      var term = document.getElementById('searchInput').value.toLowerCase();
-      var list = document.getElementById('resultList');
-      list.innerHTML = '';
-      
-      if (!term) {
-        list.style.display = 'none';
-        return;
-      }
-
-      var matches = DB.filter(function(item) {
-        var txt = (item.id + " " + item.us + " " + item.jp + " " + item.th_w).toLowerCase();
-        return txt.includes(term);
-      }).slice(0, 20);
-
-      if (matches.length === 0) {
-        list.innerHTML = '<div class="result-item">ไม่พบข้อมูล</div>';
-      } else {
-        matches.forEach(function(m) {
-          var div = document.createElement('div');
-          div.className = 'result-item';
-          div.textContent = `[${m.id}] ${m.us}`;
-          div.onclick = function() { jumpToItem(m.id); };
-          list.appendChild(div);
-        });
-      }
-      list.style.display = 'block';
-    }
-
-    function jumpToItem(id) {
-      var inCurrent = FILTERED_DB.findIndex(x => x.id === id);
-      if (inCurrent === -1) {
-        document.getElementById('filCat1').value = "";
-        document.getElementById('filCat2').value = "";
-        document.getElementById('filCat3').value = "";
-        applyFilter(); 
-      }
-      
-      var idx = FILTERED_DB.findIndex(x => x.id === id);
-      if (idx !== -1) {
-        loadIndex(idx);
-        document.getElementById('resultList').style.display = 'none';
-        document.getElementById('searchInput').value = '';
-      }
-    }
-
-    function loadIndex(idx) {
-      if (idx < 0 || idx >= FILTERED_DB.length) return;
-      
-      CURRENT_INDEX = idx;
-      var data = FILTERED_DB[idx];
-
-      document.getElementById('showID').textContent = data.id;
-      document.getElementById('showRow').textContent = data.rowIndex;
-      
-      document.getElementById('show3LID').textContent = data.lid3 || "-";
-      document.getElementById('showENJP').textContent = data.enjp || "-";
-      document.getElementById('showJP').textContent = data.jp || "-";
-      document.getElementById('showUS').textContent = data.us || "-";
-      //document.getElementById('showContext').textContent = data.context || "-";
-      //document.getElementById('showGenNote').textContent = data.genNote || "-";
-
-      // 🛡️ Logic ปุ่ม Translate (โชว์เมื่อมีชื่อ JP)
-      var btnTr = document.getElementById('btnTransTop');
-      if (data.jp && data.jp !== "-" && data.jp.trim() !== "") {
-         btnTr.style.display = "block";
-      } else {
-         btnTr.style.display = "none";
-      }
-
-      var aliasText = "-";
-      if(data.alias) {
-        var parent = DB.find(x => x.id == data.alias); 
-        if(parent) aliasText = `Link to: ${parent.jp} / ${parent.th_f || parent.th_w || '?'}`;
-        else aliasText = "Unknown ID: " + data.alias;
-      }
-      document.getElementById('showAliasData').textContent = aliasText;
-
-      document.getElementById('edtAlias').value = data.alias || "";
-      document.getElementById('edtCat1').value = data.cat1 || "";
-      document.getElementById('edtCat2').value = data.cat2 || "";
-      document.getElementById('edtCat3').value = data.cat3 || "";
-      document.getElementById('edtGender').value = data.gender || "";
-      document.getElementById('edtAge').value = data.age || "";
-      
-      document.getElementById('edtTH_W').value = data.th_w || "";
-      document.getElementById('edtTH_F').value = data.th_f || "";
-      document.getElementById('edtStatus').value = data.status || "";
-      document.getElementById('edtContext').value = data.context || "";
-      document.getElementById('edtGenNote').value = data.genNote || "";
-
-      document.getElementById('edtM_F').value = data.m_f || "";
-      document.getElementById('edtM_EE').value = data.m_ee || "";
-      document.getElementById('edtM_TI').value = data.m_ti || "";
-      document.getElementById('edtM_PE').value = data.m_pe || "";
-      // ✅ [เพิ่มบรรทัดนี้] สั่งให้ Sheet วิ่งไปไฮไลท์แถวที่ตรงกับ data.rowIndex
-      google.script.run.withFailureHandler(function(e){}).highlightSheetRow(data.rowIndex);
-    }
-
-    function navigate(action) {
-      var newIdx = CURRENT_INDEX;
-      if (action === 'first') newIdx = 0;
-      else if (action === 'last') newIdx = FILTERED_DB.length - 1;
-      else newIdx += action;
-
-      if (newIdx >= 0 && newIdx < FILTERED_DB.length) {
-        loadIndex(newIdx);
-      } else {
-        showToast("สุดขอบข้อมูลแล้ว", true);
-      }
-    }
-
-    function saveData(autoNext) {
-      if(CURRENT_INDEX === -1) return;
-      var d = FILTERED_DB[CURRENT_INDEX];
-      
-      var now = new Date();
-      var clientTimeStr = now.toLocaleDateString('th-TH') + " " + now.toLocaleTimeString('th-TH');
-
-      var payload = {
-          rowIndex: d.rowIndex, 
-          id: d.id,
-          alias: document.getElementById('edtAlias').value,
-          cat1: document.getElementById('edtCat1').value,
-          cat2: document.getElementById('edtCat2').value,
-          cat3: document.getElementById('edtCat3').value,
-          gender: document.getElementById('edtGender').value,
-          age: document.getElementById('edtAge').value,
-          
-          th_w: document.getElementById('edtTH_W').value,
-          th_f: document.getElementById('edtTH_F').value,
-          status: document.getElementById('edtStatus').value,
-          context: document.getElementById('edtContext').value,
-          genNote: document.getElementById('edtGenNote').value,
-          
-          m_f: document.getElementById('edtM_F').value,
-          m_ee: document.getElementById('edtM_EE').value,
-          m_ti: document.getElementById('edtM_TI').value,
-          m_pe: document.getElementById('edtM_PE').value,
-          
-          clientTime: clientTimeStr 
-      };
-      
-      var btnSave = document.querySelector('.btn-save');
-      var btnSaveNext = document.querySelector('.btn-save-next');
-      var activeBtn = autoNext ? btnSaveNext : btnSave;
-      
-      activeBtn.textContent = "Saving...";
-      btnSave.disabled = true;
-      btnSaveNext.disabled = true;
-
-      google.script.run
-        .withSuccessHandler(function(res) { 
-           Object.assign(d, payload);
-           d.lastUp = clientTimeStr; 
-           showToast("Saved!");
-           btnSave.textContent = "Save";
-           btnSaveNext.textContent = "Save & Next >";
-           btnSave.disabled = false;
-           btnSaveNext.disabled = false;
-
-           if (autoNext) navigate(1);
-        })
-        .withFailureHandler(function(e) { 
-           showToast("Error: " + e.message, true);
-           btnSave.textContent = "Save";
-           btnSaveNext.textContent = "Save & Next >";
-           btnSave.disabled = false;
-           btnSaveNext.disabled = false;
-        })
-        .saveTranslation(payload);
-    }
-
-    // --- Google Tools (Popups with Center Screen) ---
-
-    function googleSearch() {
-      var jp = document.getElementById('showJP').textContent;
-      var us = document.getElementById('showUS').textContent;
-      if(jp === '-' && us === '-') return;
-      
-      var q = `Final Fantasy VII Rebirth Wiki ${jp !== '-' ? jp : ''} ${us !== '-' ? us : ''}`;
-      var url = 'https://www.google.com/search?q=' + encodeURIComponent(q);
-      
-      // Calculate Center Position for 900x800
-      var w = 900;
-      var h = 800;
+      var w = 1000; // จัดให้กว้างหน่อยสำหรับเว็บนี้
+      var h = 700;
       var left = (screen.width - w) / 2;
       var top = (screen.height - h) / 2;
 
-      window.open(url, 'gsearch_popup', `width=${w},height=${h},top=${top},left=${left},scrollbars=yes,resizable=yes`);
-    }
-
-    function openTransPopup() {
-      var jpName = document.getElementById('showJP').textContent;
-      if (!jpName || jpName === '-' || jpName.trim() === '') return;
-
-      var url = 'https://translate.google.com/?sl=ja&tl=th&text=' + encodeURIComponent(jpName) + '&op=translate';
+      window.open(url, 'romaji_popup', `width=${w},height=${h},top=${top},left=${left},scrollbars=yes,resizable=yes`);
       
-      // Calculate Center Position for 500x600
-      var w = 500;
-      var h = 600;
-      var left = (screen.width - w) / 2;
-      var top = (screen.height - h) / 2;
-
-      window.open(url, 'gtrans_popup', `width=${w},height=${h},top=${top},left=${left},scrollbars=yes,resizable=yes`);
-    }
-
-    // --- Metrics Tools ---
-
-    function copyMetrics() {
-      METRIC_CLIPBOARD.F = document.getElementById('edtM_F').value;
-      METRIC_CLIPBOARD.EE = document.getElementById('edtM_EE').value;
-      METRIC_CLIPBOARD.TI = document.getElementById('edtM_TI').value;
-      METRIC_CLIPBOARD.PE = document.getElementById('edtM_PE').value;
-      showToast("Metrics Copied");
-    }
-
-    function pasteMetrics() {
-      document.getElementById('edtM_F').value = METRIC_CLIPBOARD.F;
-      document.getElementById('edtM_EE').value = METRIC_CLIPBOARD.EE;
-      document.getElementById('edtM_TI').value = METRIC_CLIPBOARD.TI;
-      document.getElementById('edtM_PE').value = METRIC_CLIPBOARD.PE;
-      showToast("Metrics Pasted");
-    }
-
-    function showToast(msg, isError) {
-      var t = document.getElementById('toast');
-      t.textContent = msg;
-      t.style.borderColor = isError ? '#f44336' : '#4ec9b0';
-      t.style.backgroundColor = isError ? '#d32f2f' : '#333';
-      t.className = "show";
-      if(window.toastTimeout) clearTimeout(window.toastTimeout);
-      window.toastTimeout = setTimeout(function(){ 
-          t.className = t.className.replace("show", ""); 
-      }, 3000);
-    }
-    // --- Manual Sync Logic ---
-    function syncFromSheet() {
-       // เรียกใช้ฟังก์ชันเดิมใน Code.gs ที่เราเตรียมไว้
-       google.script.run.withSuccessHandler(function(activeId) {
-          if (activeId) {
-            // ถ้าเจอ ID ในแถวนั้น ให้กระโดดไปเลย
-            // เช็คก่อนว่า ID นี้มีในระบบไหม
-            var exists = DB.find(x => x.id === activeId);
-            if(exists) {
-               jumpToItem(activeId);
-               showToast("Synced to: " + activeId);
-            } else {
-               showToast("ไม่พบข้อมูล ID: " + activeId + " ในระบบ", true);
-            }
-          } else {
-            showToast("ไม่พบ ID ในแถวที่เลือก (กรุณาคลิกในตารางข้อมูล)", true);
-          }
-       }).getActiveSelectionId();
+      // แจ้งเตือนเพิ่มว่าทำ 2 อย่างแล้ว
+      showToast("Copied & Opened RomajiDesu!");
     }
 
   </script>
