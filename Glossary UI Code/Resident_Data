@@ -1,0 +1,72 @@
+<script>
+// ==========================================
+// File: Resident_Data.js (HTML wrapper)
+// Description: รวมตัวแปรค่าคงที่และการแปลงชื่อต่างๆ (Static Data)
+// ==========================================
+
+const CAT_SOFT_MAP = {
+    // --- Category 1 (Main Type) ---
+    "ANIMAL":           "ANML",
+    "ANTAGONIST":       "ANTAG",
+    "ENV_TEXTVOICE":    "ENV.VO",
+    "MAIN_CHAR":        "MAIN",
+    "MONSTER":          "MONST",
+    "NPC_GENERIC":      "NPC.G",
+    "NPC_STORY":        "NPC.S",
+    "SUPPORT_CHAR":     "SUP.C",
+    "UNCATEGORIZED":    "UNCAT",
+    "UNKNOWN":          "UNK",
+    "SYSTEM_CHOICE":    "SYS",
+
+    // --- Category 2 (Sub Group) ---
+    "ALLIANCE":         "ALLY",
+    "BADASS_CREW":      "BADASS",
+    "BLACK_ROBE":       "B.ROBE",
+    "CHOCOBO":          "CHOCO",
+    "CORNEO_CREW":      "CORNEO",
+    "QUEENS_BLOOD":     "Q.BLD",
+    "RESIDENT":         "RSDNT",
+    "SERVICE_NPC":      "SRV.NPC",
+    "SHINRA_EXCUTIVE":  "SH.EXEC",
+    "SHINRA_MILITARY":  "SH.MIL",
+    "SIDE_QUEST":       "S.QST",
+    "TURKS":            "TURKS", // สั้นอยู่แล้ว
+    "WUTAI":            "WUTAI", // สั้นอยู่แล้ว
+
+    // --- Category 3 (Role/Tag) ---
+    "ALIAS":            "ALIAS",
+    "ALT_WORLD":        "ALT.W",
+    "ANNOUNCER":        "ANN",
+    "AVALANCHE":        "AVAL",
+    "BOARDCAST":        "B.CAST",
+    "BOSS":             "BOSS",
+    "FLASHBACK":        "FLASH",
+    "GROUP_TALK":       "G.TALK",
+    "MULTI_ROLE":       "M.ROLE",
+    "NARRATION":        "NARR",
+    "NEWS":             "NEWS",
+    "NO_NAME_DLG":      "NN.DLG", // ✅ Added per instruction
+    "OPPONENT":         "OPP",
+    "QUEST_GIVER":      "Q.GIV",
+    "REMAKE":           "RMK",
+    "SOLDIER":          "SLDR",
+    "TRANSFORMED":      "TRANS",
+    "VENDOR_ACCESSORY": "V.ACC",
+    "VENDOR_BOOK":      "V.BOOK",
+    "VENDOR_CARD":      "V.CARD",
+    "VENDOR_CHOCOBO":   "V.CHO",
+    "VENDOR_EXCHANGE":  "V.EXC",
+    "VENDOR_GENERAL":   "V.GEN",
+    "VENDOR_ITEM":      "V.ITEM",
+    "VENDOR_MATERIA":   "V.MAT",
+    "VENDOR_WEAPON":    "V.WPN",
+    "VR_ROLEPLAY":      "VR",
+    "YOUNG_VER":        "YOUNG"
+};
+
+// Helper Function: เรียกใช้ง่ายๆ (เผื่อหาไม่เจอให้คืนค่าเดิมกลับไป)
+function getSoftCat(originalName) {
+    if (!originalName) return "";
+    return CAT_SOFT_MAP[originalName] || originalName;
+}
+</script>
