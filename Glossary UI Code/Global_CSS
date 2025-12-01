@@ -1,0 +1,445 @@
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700&display=swap');
+
+/* Gemini Chat: 🖥️ Popup & Sidebar Architect [thuvachit]
+    File: Global_CSS.html (Styles)
+    Status: PATCH V3.0 (Draft Staging System & Global Save UI)
+    (ณ: 2025-11-29 20:00) (by User & Gemini Architect)
+*/
+
+    /* =========================================================
+       PART 0: THEME VARIABLES (THE PALETTE)
+       ========================================================= */
+    :root {
+        /* --- ☀️ LIGHT MODE (Default - ตรงตามต้นฉบับเป๊ะ) --- */
+        --bg-body: #f8f9fa;
+        --bg-card: #ffffff;
+        --bg-input: #ffffff;
+        --bg-filter: #e3f2fd;         /* ฟ้าอ่อนๆ ตรง Filter */
+        --bg-source: #f1f3f4;         /* เทาอ่อนตรง Source Box */
+        --bg-highlight: #e8f0fe;      /* ฟ้าจางๆ เวลา Hover */
+        --bg-wb-col-left: #f8f9fa;    /* Popup Col Left/Right */
+        --bg-wb-col-center: #ffffff;  /* Popup Center */
+        --bg-wb-grid-gap: #e0e0e0;    /* เส้นคั่น Grid Popup */
+        
+        --text-main: #333333;         /* สีหลักเข้มๆ */
+        --text-sub: #666666;          /* สีรองเทาๆ */
+        --text-label: #5f6368;        /* Label เล็กๆ */
+        --text-link: #1a73e8;         /* สีน้ำเงิน Link/Header */
+        --text-error: #d32f2f;        /* สีแดง JP */
+        --text-success: #0b8043;      /* สีเขียว */
+
+        --border-std: #cccccc;        /* ขอบทั่วไป */
+        --border-light: #dddddd;      /* ขอบจางๆ */
+        --border-focus: #1a73e8;      /* ขอบตอนคลิก */
+
+        --btn-nav-bg: #f1f3f4;
+        --btn-nav-hover: #e8eaed;
+        --btn-refresh-bg: #666666;
+        --btn-copy-bg: #e8eaed;
+        --btn-copy-text: #333;
+
+        /* Metrics Colors (Base) */
+        --metric-bg-f: #fff;
+    }
+
+    /* --- 🌙 DARK MODE (Overrides) --- */
+    [data-theme="dark"] {
+        --bg-body: #1e1e1e;           /* เทาเข้มพื้นหลัง */
+        --bg-card: #2d2d30;           /* เทาอ่อนขึ้นมานิดสำหรับ Card */
+        --bg-input: #3c4043;          /* ช่องกรอกข้อมูล */
+        --bg-filter: #263238;         /* Filter เข้มๆ */
+        --bg-source: #303134;         /* Source Box เข้ม */
+        --bg-highlight: #3c4043;      /* Hover แล้วสว่างขึ้นนิด */
+        --bg-wb-col-left: #202124;    
+        --bg-wb-col-center: #2d2d30;  
+        --bg-wb-grid-gap: #444444;    
+
+        --text-main: #e8eaed;         /* ขาวนวล */
+        --text-sub: #9aa0a6;          /* เทาเงิน */
+        --text-label: #bdc1c6;        
+        --text-link: #8ab4f8;         /* ฟ้าพาสเทล (Soft Blue) */
+        --text-error: #f28b82;        /* แดงพาสเทล */
+        --text-success: #81c995;      /* เขียวพาสเทล */
+
+        --border-std: #5f6368;
+        --border-light: #444444;
+        --border-focus: #8ab4f8;
+
+        --btn-nav-bg: #3c4043;
+        --btn-nav-hover: #4a4d50;
+        --btn-refresh-bg: #444444;
+        --btn-copy-bg: #3c4043;
+        --btn-copy-text: #e8eaed;
+    }
+
+    /* =========================================================
+       PART 1: BASE STYLES (Variables Applied)
+       ========================================================= */
+
+    body { 
+        padding: 10px; 
+        font-family: 'Segoe UI', Roboto, 'Sarabun', sans-serif; 
+        background: var(--bg-body);       /* ✅ Variable */
+        color: var(--text-main);          /* ✅ Variable */
+        font-size: 13px; 
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        transition: background-color 0.3s, color 0.3s; /* Smooth Transition */
+    }
+    
+    #initLoader { text-align: center; padding: 20px; color: var(--text-sub); display: none; }
+    #mainApp { display: block; } 
+
+    /* Top Bar & Header */
+    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .app-title { font-weight: bold; color: var(--text-sub); font-size: 12px; }
+    .live-clock { 
+        font-size: 12px; 
+        color: var(--text-link); 
+        font-weight: bold; 
+        background: var(--bg-highlight); 
+        padding: 4px 10px; 
+        border-radius: 4px; 
+        border: 1px solid var(--border-light);
+    }
+
+    /* Filter Section */
+    .filter-section { 
+        background: var(--bg-filter);     /* ✅ Variable */
+        padding: 8px; 
+        border-radius: 4px; 
+        margin-bottom: 10px; 
+        border: 1px solid var(--border-std); 
+    }
+    .filter-controls { display: flex; gap: 5px; margin-top: 5px; }
+    select { font-size: 11px; width: 100%; }
+
+    /* Search Box & Results */
+    .search-box { display: flex; gap: 5px; margin-bottom: 10px; }
+    .search-results { 
+        max-height: 150px; 
+        overflow-y: auto; 
+        background: var(--bg-card);       /* ✅ Variable */
+        border: 1px solid var(--border-std); 
+        display: none; 
+        scrollbar-gutter: stable;         /* ✅ [NEW] กันหน้ากระตุก */
+        margin-bottom: 10px; 
+    }
+    .result-item { 
+        padding: 6px; 
+        border-bottom: 1px solid var(--border-light); 
+        cursor: pointer; 
+        color: var(--text-main); 
+    }
+    .result-item:hover { background-color: var(--bg-highlight); }
+
+    /* Editor Cards & Forms */
+    .editor-card { 
+        background: var(--bg-card);       /* ✅ Variable */
+        border: 1px solid var(--border-std); 
+        padding: 10px; 
+        border-radius: 4px; 
+        opacity: 1; pointer-events: auto; 
+    }
+    .info-row { display: flex; justify-content: space-between; color: var(--text-sub); font-size: 11px; margin-bottom: 5px; }
+    
+    .source-box { 
+        background: var(--bg-source);     /* ✅ Variable */
+        padding: 8px; 
+        border-radius: 4px; 
+        margin-bottom: 10px; 
+    }
+    .source-text { font-weight: bold; display: block; margin-bottom: 4px; }
+    .label-mini { font-size: 10px; color: var(--text-label); text-transform: uppercase; display: block; margin-bottom: 2px; }
+    .sub-info { font-size: 11px; color: var(--text-sub); margin-bottom: 4px; }
+
+    .cat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 10px; }
+    .form-group { margin-bottom: 8px; }
+
+    /* Input Fields */
+    input, select, textarea { 
+        padding: 5px; 
+        border: 1px solid var(--border-light); 
+        border-radius: 3px; 
+        width: 100%; 
+        box-sizing: border-box; 
+        font-family: 'Sarabun', sans-serif; 
+        font-size: 12px; 
+        
+        background-color: var(--bg-input); /* ✅ Variable */
+        color: var(--text-main);           /* ✅ Variable */
+    }
+    input:focus, select:focus, textarea:focus {
+        border-color: var(--border-focus);
+        outline: none;
+    }
+
+    textarea { line-height: 1.5; }
+    
+    /* Buttons Base */
+    .btn-nav-row { display: flex; gap: 4px; margin-top: 15px; margin-bottom: 5px; }
+    .btn-nav { 
+        flex: 1; 
+        background: var(--btn-nav-bg);     /* ✅ Variable */
+        border: 1px solid var(--border-std); 
+        cursor: pointer; 
+        border-radius: 3px; 
+        font-size: 10px; 
+        font-weight: bold; 
+        padding: 4px; 
+        color: var(--text-sub); 
+    }
+    .btn-nav:hover { background: var(--btn-nav-hover); }
+
+    .btn-action-row { display: flex; gap: 5px; }
+    .btn-save { flex: 1; background: #1a73e8; color: white; font-weight: bold; border: none; padding: 8px; border-radius: 3px; cursor: pointer; font-size: 12px; transition: all 0.2s ease; }
+    .btn-save-next { flex: 1.2; background: #0b8043; color: white; font-weight: bold; border: none; padding: 8px; border-radius: 3px; cursor: pointer; font-size: 12px; transition: all 0.2s ease; }
+    .btn-save:hover { background: #1558b0; }
+    .btn-save-next:hover { background: #0a6b38; }
+    .btn-save:disabled, .btn-save-next:disabled { background: var(--border-std); cursor: not-allowed; opacity: 0.7; }
+
+    /* --- [NEW] Button States (Visual Feedback) --- */
+    
+    /* 1. Dirty State (มีการแก้ไข) -> สีน้ำเงินเข้ม เรียกร้องความสนใจ */
+    .btn-save.dirty, .btn-save-next.dirty {
+        background-color: #1565c0 !important; /* Blue 800 */
+        box-shadow: 0 0 8px rgba(21, 101, 192, 0.5); /* Glow Effect */
+        transform: scale(1.02); /* ขยายตื่นตัวนิดนึง */
+        border: 1px solid #0d47a1;
+    }
+
+    /* 2. Saved State (บันทึกเสร็จ) -> สีเขียวสดชื่น */
+    .btn-save.saved, .btn-save-next.saved {
+        background-color: #2e7d32 !important; /* Green 800 */
+        pointer-events: none; /* ห้ามกดซ้ำ */
+        transform: scale(1);
+        box-shadow: none;
+    }
+
+    .btn-google { background: #db4437; color: white; border: none; border-radius: 3px; padding: 2px 6px; font-size: 10px; cursor: pointer; }
+    .btn-trans { background: #4285f4; color: white; border: none; border-radius: 3px; padding: 2px 6px; font-size: 10px; cursor: pointer; }
+    .btn-trans:hover { background: #3367d6; }
+
+    .refresh-zone { margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border-std); text-align: center; }
+    .btn-refresh { 
+        background-color: var(--btn-refresh-bg); /* ✅ Variable */
+        color: white; 
+        width: 100%; 
+        padding: 10px; 
+        border: none; 
+        border-radius: 4px; 
+        cursor: pointer; 
+        font-weight: bold; 
+        font-size: 12px; 
+    }
+    .btn-refresh:hover { opacity: 0.9; }
+
+    /* ปุ่มถังขยะ (Discard) */
+    .btn-discard {
+        transition: all 0.2s;
+        color: #d32f2f; /* สีไอคอนปกติ */
+    }
+    .btn-discard:hover {
+        background-color: #ffebee !important; /* พื้นหลังสีชมพูอ่อนตอนชี้ */
+        transform: scale(1.1); /* ขยายใหญ่ขึ้นนิดนึง */
+    }
+    .btn-discard:active {
+        background-color: #ef9a9a !important; /* สีเข้มขึ้นตอนกด */
+    }
+
+    /* Dark Mode Support (ถ้าต้องการ) */
+    [data-theme="dark"] .btn-discard {
+        background-color: #2d2d30 !important;
+        border-color: #ef9a9a !important;
+        color: #ef9a9a;
+    }
+    [data-theme="dark"] .btn-discard:hover {
+        background-color: #4a2c2c !important;
+    }
+
+    /* =========================================================
+       PART 2: GLOBAL SHARED UTILITIES
+       ========================================================= */
+
+    /* Metric Colors */
+    .metric-input.lvl-1 { background-color: #ce93d8 !important; color: #4a148c; font-weight: bold; }
+    .metric-input.lvl-2 { background-color: #e1bee7 !important; color: #6a1b9a; font-weight: bold; }
+    .metric-input.lvl-3 { background-color: #c5cae9 !important; color: #283593; font-weight: bold; }
+    .metric-input.lvl-4 { background-color: #bbdefb !important; color: #0d47a1; font-weight: bold; }
+    .metric-input.lvl-5 { background-color: #80deea !important; color: #006064; font-weight: bold; }
+    .metric-input.lvl-6 { background-color: #a5d6a7 !important; color: #1b5e20; font-weight: bold; }
+    .metric-input.lvl-7 { background-color: #e6ee9c !important; color: #827717; font-weight: bold; }
+    .metric-input.lvl-8 { background-color: #fff59d !important; color: #f57f17; font-weight: bold; }
+    .metric-input.lvl-9 { background-color: #ffcc80 !important; color: #e65100; font-weight: bold; }
+    .metric-input.lvl-10 { background-color: #ef9a9a !important; color: #b71c1c; font-weight: bold; }
+
+    /* Toast Notification */
+    #toast { 
+        position: fixed; bottom: 10px; right: 10px; 
+        background: #333; color: white; padding: 8px 12px; 
+        border-radius: 4px; display: none; font-size: 12px; 
+        opacity: 0; border: 1px solid #fff; z-index: 9999;
+        transition: opacity 0.5s;
+    }
+    #toast.show { display: block; opacity: 1; }
+    
+    .id-clickable { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; }
+    .id-clickable:hover { background-color: var(--bg-highlight); color: var(--text-link); }
+
+    /* =========================================================
+       PART 3: POPUP EXTENSIONS (OVERRIDES)
+       ========================================================= */
+
+    /* 3.1 Popup Layout Reset */
+    body.popup-mode { padding: 0; margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-wb-col-center); }
+    
+    /* 3.2 Popup Grid System */
+    .wb-grid-container {
+        display: grid; grid-template-columns: 30% 50% 20%;
+        height: 100%; overflow: hidden; 
+        background-color: var(--bg-wb-grid-gap); /* ✅ Variable (Gap Color) */
+        gap: 1px;
+    }
+    .wb-col { 
+        overflow-y: auto; padding: 10px; display: flex; flex-direction: column;
+        scrollbar-gutter: stable; /* ✅ [NEW] กันหน้ากระตุก */ 
+    }
+    .col-left { background-color: var(--bg-wb-col-left); border-right: 1px solid var(--border-std); }
+    .col-center { background-color: var(--bg-wb-col-center); border-right: 1px solid var(--border-std); }
+    .col-right { background-color: var(--bg-wb-col-left); }
+    
+    .info-card { 
+        background: var(--bg-card); 
+        border: 1px solid var(--border-std); 
+        padding: 10px; border-radius: 4px; margin-bottom: 10px; 
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1); 
+    }
+
+    /* 3.3 Popup Specific Tools */
+    .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 5px; }
+    .metric-col { text-align: center; }
+    .metric-label { font-size: 10px; font-weight: bold; color: var(--text-sub); margin-bottom: 2px; }
+    /* Override input padding for popup metrics */
+    .metric-input { text-align: center; font-size: 11px; padding: 4px !important; } 
+
+    .metric-tools { display: flex; gap: 5px; margin-bottom: 10px; }
+    .btn-copy { background: var(--btn-copy-bg); color: var(--btn-copy-text); border: 1px solid var(--border-std); border-radius: 2px; padding: 6px; font-size: 10px; cursor: pointer; flex: 1; font-weight:bold; }
+    .btn-paste { background: #fbbc04; color: #333; border: 1px solid #e0a800; border-radius: 2px; padding: 6px; font-size: 10px; cursor: pointer; flex: 1; font-weight:bold; }
+
+    .btn-top-refresh {
+      background: #d4edbc; border: 1px solid #ccc; 
+      color: #11734b; font-weight: bold; font-size: 12px;
+      padding: 4px 10px; border-radius: 4px; cursor: pointer;
+    }
+    .btn-top-refresh:hover { background: #11734b; color: #d4edbc; }
+
+    /* Dark Mode Adjustment for specific buttons */
+    [data-theme="dark"] .btn-top-refresh {
+        background: #1e3a29; border-color: #11734b; color: #81c995;
+    }
+    [data-theme="dark"] .btn-top-refresh:hover {
+        background: #11734b; color: #fff;
+    }
+
+    .btn-paste-mini {
+      background: #fbbc04; color: #333; border: 1px solid #e0a800;
+      border-radius: 3px; font-weight: bold; font-size: 10px; cursor: pointer;
+      width: 50px; 
+    }
+    .btn-paste-mini:hover { background: #f9a825; }
+
+    /* Theme Toggle Button Style */
+    #btnThemeToggle {
+        cursor: pointer; border: 1px solid transparent; background: transparent; 
+        font-size: 14px; padding: 5px; border-radius: 4px;
+        transition: all 0.2s;
+    }
+    #btnThemeToggle:hover {
+        background: var(--bg-highlight); border-color: var(--border-std);
+    }
+    
+    /* --- [UPDATE V1.7] Alias List Improvements --- */
+    .alias-list-container {
+        margin-top: 10px;
+        border-top: 1px dashed #ccc;
+        padding-top: 5px;
+        max-height: 120px !important; /* 🔴 [FIX] ลดความสูงลงจาก 200px */
+        overflow-y: auto; 
+        display: none; 
+        scrollbar-gutter: stable;     /* ✅ [NEW] กันหน้ากระตุก */
+        overscroll-behavior: contain; 
+    }
+
+    /* แก้สีตัวหนังสือให้รองรับ Dark Mode (ใช้ตัวแปรกลาง) */
+    .col-a-name { 
+        color: var(--text-main) !important; /* ✅ แก้จาก #333 เป็นตัวแปร */
+        white-space: nowrap; 
+        overflow: hidden; 
+        text-overflow: ellipsis; 
+        font-weight: 500;
+        padding-left: 10px;
+    }
+    .col-a-met {
+        color: var(--text-sub) !important;  /* ✅ แก้จาก #555 เป็นตัวแปร */
+        font-family: monospace; 
+        font-size: 14px; 
+        text-align: center; 
+        letter-spacing: -0.5px; 
+    }
+
+    /* =========================================================
+       PART 4: DRAFT DASHBOARD & STAGING (V3.0)
+       ========================================================= */
+
+    /* Dashboard Container */
+    #draftDashboard {
+        transition: all 0.3s ease;
+    }
+    
+    /* Clickable Draft Items (ID List) */
+    .draft-item {
+        cursor: pointer;
+        padding: 1px 4px;
+        border-radius: 3px;
+        transition: background 0.2s;
+        text-decoration: none;
+    }
+    .draft-item:hover {
+        background-color: var(--bg-highlight);
+        color: var(--text-link);
+        text-decoration: underline;
+    }
+    
+    /* Separator pipe */
+    .draft-sep {
+        color: var(--border-std);
+        margin: 0 2px;
+    }
+
+    /* Global Save Button Animation */
+    #btnGlobalSave {
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    #btnGlobalSave:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
+        opacity: 0.95;
+    }
+    #btnGlobalSave:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+    }
+    
+    /* Global Save - Dirty Animation (Pulse) */
+    @keyframes pulse-green {
+        0% { box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.4); }
+        70% { box-shadow: 0 0 0 6px rgba(46, 125, 50, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(46, 125, 50, 0); }
+    }
+    
+    #btnGlobalSave.has-drafts {
+        animation: pulse-green 2s infinite;
+    }
+
+</style>
