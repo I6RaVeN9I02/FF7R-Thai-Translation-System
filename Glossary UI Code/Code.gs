@@ -1,19 +1,52 @@
 /**
  * Gemini Chat: 🖥️ FF7 Rebirth Glossary UI Workbench
  * File: Code.gs (Server-Side Logic)
- * (สถานะ: V1.0 "Sidebar Search")
- * (ณ: 2025-11-25 03:25) โดย Gemini
- *
+ * (สถานะ: V3.1 "Town Badges Data Support")
+ * (ณ: 2025-11-29 21:00) โดย User & Gemini Architect
  */
 
+// 1. เพิ่มเมนูสำหรับเปิด Popup ทดสอบ
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Translation Engine')
-      .addItem('เปิดโต๊ะแปล (Final)', 'showSidebar')
+      .addItem('เปิดโต๊ะแปล (Sidebar)', 'showSidebar')      // ของเดิม (เรียกไฟล์ที่แยกส่วนแล้ว)
+      .addItem('🚀 เปิดโต๊ะแปล (Popup Mode)', 'showPopup')  // ✅ ของใหม่ (เรียกไฟล์ 700 บรรทัดมายำ)
       .addToUi();
 }
 
+// ... (ฟังก์ชัน showSidebar และอื่นๆ ปล่อยไว้เหมือนเดิม) ...
+
+// ✅ เพิ่มฟังก์ชันนี้เพื่อเปิด Popup จากไฟล์ Popup_Main.html
+// ฟังก์ชันเปิดหน้าต่างลอย (Popup Mode)
+function showPopup() {
+  // ✅ เรียกไฟล์ Popup_Main.html (ไฟล์ยำ)
+  var template = HtmlService.createTemplateFromFile('Popup_Main'); 
+  
+  var html = template.evaluate()
+      .setWidth(1800)   // 📏 ปรับความกว้างตามใจชอบ (Sidebar ปกติแค่ 300)
+      .setHeight(900); // 📏 ปรับความสูง
+      
+// ตั้งค่าจำนวน
+  var baseSpacer = 135; // ค่าเดิมที่เคยจูนไว้ตอนไม่มีขีด
+  var eqCount = 0;     // อยากได้ขีดข้างละกี่ตัว (เช่น 15 ตัว)
+  
+  // คำนวณลดวรรค (1 ขีด = 2 วรรค)
+  var finalSpacerCount = baseSpacer - (eqCount * 2); 
+  
+  // สร้างสตริง
+  var spacer = "\u00A0".repeat(finalSpacerCount);
+  var deco = "=".repeat(eqCount);
+  
+  // ประกอบร่าง
+  var title = spacer + deco + '  🖥️ Workbench: Final Fantasy VII Rebirth Glossary  ' + deco;
+
+  SpreadsheetApp.getUi().showModelessDialog(html, title);
+}
+
 function showSidebar() {
-  var html = HtmlService.createHtmlOutputFromFile('Sidebar_Search')
+  // ✅ [Update] เปลี่ยนเป็น Template เพื่อรองรับการรวมไฟล์ (include)
+  var template = HtmlService.createTemplateFromFile('Sidebar_Main'); 
+  
+  var html = template.evaluate() // ต้องมี evaluate() เพื่อประมวลผล Tag <?!= ?>
       .setTitle('Translator Workbench (Final)')
       .setWidth(500); 
   SpreadsheetApp.getUi().showSidebar(html);
@@ -72,7 +105,7 @@ function getAllData() {
         
         th_w: getVal(colMap.th_w),
         th_f: getVal(colMap.th_f),
-        th_ai: getVal(colMap.th_ai), // ✅ เพิ่มบรรทัดนี้ครับ (ใส่ต่อจาก th_f ก็ได้)
+        th_ai: getVal(colMap.th_ai), 
         status: getVal(colMap.status),
         
         context: getVal(colMap.context),
@@ -85,6 +118,9 @@ function getAllData() {
         m_ee: getVal(colMap.m_ee),
         m_ti: getVal(colMap.m_ti),
         m_pe: getVal(colMap.m_pe),
+        
+        // ✅ [NEW] Town Data Support
+        towns: getVal(colMap.towns),
         
         lastUp: dateStr
       };
@@ -118,6 +154,9 @@ function getMetaLists(metaSheet) {
     return metaLists;
 }
 
+// -----------------------------------------------------------------------
+// ✅ [LEGACY] Save Single Row (ใช้สำหรับ Sidebar เก่า หรือ Fallback)
+// -----------------------------------------------------------------------
 function saveTranslation(data) {
   try {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DB_Entities');
@@ -149,7 +188,7 @@ function saveTranslation(data) {
     sheet.getRange(r, colMap.m_ti + 1).setValue(data.m_ti);
     sheet.getRange(r, colMap.m_pe + 1).setValue(data.m_pe);
 
-    // ✅ บันทึกเวลาที่ส่งมาจาก Client
+    // ✅ บันทึกเวลาที่ส่งมาจาก Client (Single Mode ใช้ data.clientTime)
     sheet.getRange(r, colMap.lastUp + 1).setValue(data.clientTime);
 
     SpreadsheetApp.flush(); 
@@ -157,6 +196,63 @@ function saveTranslation(data) {
     return { success: true };
   } catch (e) {
     throw new Error(e.message);
+  }
+}
+
+// -----------------------------------------------------------------------
+// ✅ [NEW V3.0] Batch Save (บันทึกทีละหลายแถวจาก Draft)
+// -----------------------------------------------------------------------
+function saveTranslationBatch(payloadArray) {
+  try {
+    if (!payloadArray || !Array.isArray(payloadArray) || payloadArray.length === 0) {
+      return { success: false, message: "No data received" };
+    }
+
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DB_Entities');
+    if (!sheet) throw new Error("Sheet not found");
+
+    // 1. อ่าน Headers ครั้งเดียว (Optimization)
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var colMap = getColMap(headers);
+    
+    // 2. วนลูปบันทึกแต่ละรายการ
+    payloadArray.forEach(function(data) {
+        var r = parseInt(data.rowIndex);
+        if (isNaN(r) || r < 2) return; // Skip invalid rows
+
+        sheet.getRange(r, colMap.alias + 1).setValue(data.alias);
+        sheet.getRange(r, colMap.cat1 + 1).setValue(data.cat1);
+        sheet.getRange(r, colMap.cat2 + 1).setValue(data.cat2);
+        sheet.getRange(r, colMap.cat3 + 1).setValue(data.cat3);
+        
+        sheet.getRange(r, colMap.th_w + 1).setValue(data.th_w);
+        sheet.getRange(r, colMap.th_f + 1).setValue(data.th_f);
+        sheet.getRange(r, colMap.status + 1).setValue(data.status);
+        
+        sheet.getRange(r, colMap.context + 1).setValue(data.context);
+        sheet.getRange(r, colMap.genNote + 1).setValue(data.genNote);
+        
+        sheet.getRange(r, colMap.gender + 1).setValue(data.gender);
+        sheet.getRange(r, colMap.age + 1).setValue(data.age);
+        
+        sheet.getRange(r, colMap.m_f + 1).setValue(data.m_f);
+        sheet.getRange(r, colMap.m_ee + 1).setValue(data.m_ee);
+        sheet.getRange(r, colMap.m_ti + 1).setValue(data.m_ti);
+        sheet.getRange(r, colMap.m_pe + 1).setValue(data.m_pe);
+
+        // ✅ บันทึกเวลา (Batch Mode ใช้ data.lastUp ตามที่ Sidebar V3 ส่งมา)
+        if (data.lastUp) {
+            sheet.getRange(r, colMap.lastUp + 1).setValue(data.lastUp);
+        }
+    });
+
+    // 3. บังคับบันทึกทันที
+    SpreadsheetApp.flush();
+
+    return { success: true, count: payloadArray.length };
+
+  } catch (e) {
+    throw new Error("Batch Save Error: " + e.message);
   }
 }
 
@@ -176,7 +272,7 @@ function getColMap(headers) {
     
     th_w: headers.indexOf('Name_TH_Working'),
     th_f: headers.indexOf('Name_TH_Final'),
-    th_ai: headers.indexOf('Name_TH_AI'), // ✅ เพิ่มบรรทัดนี้ครับ
+    th_ai: headers.indexOf('Name_TH_AI'), // ✅ มีคอลัมน์ AI แล้ว
     
     context: headers.indexOf('Translator_Context'),
     status: headers.indexOf('Term_Status'),
@@ -189,6 +285,9 @@ function getColMap(headers) {
     m_ee: headers.indexOf('Metric_EE'),
     m_ti: headers.indexOf('Metric_TI'),
     m_pe: headers.indexOf('Metric_PE'),
+    
+    // ✅ [NEW] Map Town Column (All_Towns)
+    towns: headers.indexOf('All_Towns'),
     
     lastUp: headers.indexOf('Last_Updated')
   };
@@ -208,10 +307,9 @@ function highlightSheetRow(rowIndex) {
     sheet.getRange(r, 1, 1, sheet.getLastColumn()).activate();
     
   } catch (e) {
-    // เงียบไว้ ไม่ต้องโวยวายถ้า Error (เช่น สับเปลี่ยนเร็วจัดจนหาแถวไม่ทัน)
+    // เงียบไว้ ไม่ต้องโวยวายถ้า Error
   }
 }
-
 
 // ฟังก์ชันสำหรับ Sidebar คอยเช็คว่านายท่านเลือกแถวไหนอยู่
 function getActiveSelectionId() {
@@ -219,20 +317,21 @@ function getActiveSelectionId() {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DB_Entities');
     var activeSheet = SpreadsheetApp.getActiveSheet();
     
-    // ถ้าไม่ได้อยู่ที่ชีต DB_Entities ไม่ต้องทำอะไร
     if (activeSheet.getName() !== 'DB_Entities') return null;
 
     var r = activeSheet.getActiveCell().getRow();
     var lastRow = activeSheet.getLastRow();
 
-    // ถ้าคลิกนอกเหนือเขตข้อมูล หรือคลิกหัวตาราง (แถว 1) ให้ข้าม
     if (r < 2 || r > lastRow) return null;
 
-    // ดึงค่า ID จากคอลัมน์ A (Master_ID) ของแถวนั้น
-    // สมมติว่า Master_ID อยู่คอลัมน์ 1 เสมอ (เพื่อความเร็วในการประมวลผล)
     return activeSheet.getRange(r, 1).getValue();
 
   } catch (e) {
     return null;
   }
+}
+
+// ✅ [New] ฟังก์ชันหัวใจสำคัญของการแยกไฟล์
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
