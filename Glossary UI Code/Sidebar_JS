@@ -1,0 +1,819 @@
+<script>
+/* Gemini Chat: 🖥️ FF7 Rebirth Glossary UI Workbench
+  File: Sidebar_JS.html (Logic)
+  (สถานะ: V3.1 "Hybrid System - Direct Save Main / Auto-Draft Nav")
+*/
+
+    var DB = [];           
+    var FILTERED_DB = []; 
+    var CURRENT_INDEX = -1;
+    var METRIC_CLIPBOARD = { F:"", EE:"", TI:"", PE:"" }; 
+    
+    // ✅ [Toggle Feature] ตัวแปรควบคุมการ Highlight (Default = False/ปิด)
+    var AUTO_SYNC = false; 
+
+    // ✅ [V3.0] Draft Staging System
+    var DRAFT_CACHE = {}; 
+    var IS_DIRTY = false; 
+
+    // 1. Initialization
+    document.addEventListener('DOMContentLoaded', function() {
+      startClock(); 
+      
+      // Preload UI
+      document.getElementById('initLoader').style.display = 'none';
+      document.getElementById('mainApp').style.display = 'block';
+      
+      showToast("Ready! Waiting for data...");
+      
+      // อัพเดทสถานะปุ่มตอนเริ่มระบบ
+      updateAutoSyncBtn();
+      updateDraftDashboard(); // Init Dashboard
+    });
+
+    // === Clock Function ===
+    function startClock() {
+        var update = function() {
+            var now = new Date();
+            var options = { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false };
+            var clockEl = document.getElementById('liveClock');
+            if(clockEl) clockEl.textContent = now.toLocaleDateString('th-TH', options);
+        };
+        update(); 
+        setInterval(update, 1000); 
+    }
+
+    function refreshData() {
+      // ⚠️ Warn User: Refreshing will clear DRAFTS!
+      if (Object.keys(DRAFT_CACHE).length > 0) {
+          if(!confirm("⚠️ WARNING: You have unsaved Drafts in RAM.\nRefreshing will WIPE them out.\n\nContinue?")) return;
+      }
+
+      DRAFT_CACHE = {}; // Clear Drafts
+      IS_DIRTY = false;
+      updateSaveButtonUI();
+      updateDraftDashboard();
+
+      document.getElementById('mainApp').style.display = 'none';
+      var loader = document.getElementById('initLoader');
+      loader.style.display = 'block';
+      loader.innerHTML = '<h3>⏳ กำลังโหลดฐานข้อมูล...</h3><p>กรุณารอสักครู่...</p>';
+
+      google.script.run
+        .withSuccessHandler(initApp)
+        .withFailureHandler(onLoadError)
+        .getAllData();
+    }
+
+    function onLoadError(error) {
+       var loader = document.getElementById('initLoader');
+       loader.innerHTML = `
+         <h3 style="color: #d32f2f;">❌ เกิดข้อผิดพลาด</h3>
+         <div style="color: #555; margin-bottom: 10px;">${error.message}</div>
+         <button class="btn-refresh" onclick="refreshData()" style="width: auto;">ลองใหม่อีกครั้ง</button>
+       `;
+    }
+
+    function initApp(payload) {
+      DB = payload.database;
+      var opts = payload.options;
+
+      fillSelect('filCat1', opts.cat1, true);
+      fillSelect('filCat2', opts.cat2, true);
+      fillSelect('filCat3', opts.cat3, true);
+      
+      fillSelect('edtCat1', opts.cat1);
+      fillSelect('edtCat2', opts.cat2);
+      fillSelect('edtCat3', opts.cat3);
+      fillSelect('edtStatus', opts.statuses);
+      fillSelect('edtGender', opts.gender);
+      fillSelect('edtAge', opts.age);
+
+      document.getElementById('initLoader').style.display = 'none';
+      document.getElementById('mainApp').style.display = 'block';
+      
+      setupDirtyListeners();
+
+      applyFilter();
+      if(FILTERED_DB.length > 0) loadIndex(0);
+      
+      showToast("ระบบพร้อมใช้งาน", false);
+    }
+
+    // 1. อัปเกรด fillSelect ให้มีตัวเลือก [BLANK]
+    function fillSelect(elId, items, hasAll) {
+      var el = document.getElementById(elId);
+      if(!el) return;
+      var oldVal = el.value;
+      
+      el.innerHTML = ''; 
+
+      if (hasAll) {
+          el.options.add(new Option("All", ""));
+          // ✅ [NEW] ตัวเลือกหาค่าว่าง (ว่างเปล่า)
+          var optEmpty = new Option("📂 [BLANK] (ค่าว่าง)", "?EMPTY?");
+          optEmpty.style.color = "#1565c0"; // สีน้ำเงินให้เด่นนิดนึง
+          el.options.add(optEmpty);
+      } else {
+          el.options.add(new Option("-", ""));
+      }
+
+      if(items){
+        // Loop 1: รายการปกติ
+        items.forEach(function(x) {
+          el.options.add(new Option(x, x));
+        });
+
+        // Loop 2: รายการปฏิเสธ (Negative)
+        if (items.length > 0 && hasAll) { 
+            var sep = new Option("──────────", "");
+            sep.disabled = true; 
+            el.options.add(sep);
+
+            items.forEach(function(x) {
+               var opt = new Option("⛔ NOT: " + x, "!" + x);
+               opt.style.color = "#d32f2f"; 
+               el.options.add(opt);
+            });
+        }
+      }
+      if(oldVal) el.value = oldVal;
+    }
+
+    // 2. อัปเกรด applyFilter ให้รู้จัก ?EMPTY?
+    function applyFilter() {
+      var c1 = document.getElementById('filCat1').value;
+      var c2 = document.getElementById('filCat2').value;
+      var c3 = document.getElementById('filCat3').value;
+
+      FILTERED_DB = DB.filter(function(item) {
+        var match = true;
+
+        // Helper Function สุดแกร่ง (รองรับ Normal / Negative / Empty)
+        function check(filterVal, itemVal) {
+            if (!filterVal) return true; // ไม่เลือกอะไร = ผ่าน
+            
+            // ✅ [NEW] เช็คค่าว่าง
+            if (filterVal === "?EMPTY?") {
+                return !itemVal || itemVal.toString().trim() === "";
+            }
+            
+            // ⛔ เช็คปฏิเสธ (Negative)
+            if (filterVal.startsWith('!')) {
+                var target = filterVal.substring(1);
+                return itemVal != target; 
+            } 
+            
+            // 🆗 เช็คปกติ (Exact Match)
+            return itemVal == filterVal;
+        }
+
+        if (!check(c1, item.cat1)) match = false;
+        if (!check(c2, item.cat2)) match = false;
+        if (!check(c3, item.cat3)) match = false;
+        
+        return match;
+      });
+
+      var countDisplay = document.getElementById('countDisplay');
+      if(countDisplay) countDisplay.textContent = FILTERED_DB.length;
+      
+      CURRENT_INDEX = 0;
+      if(FILTERED_DB.length > 0) {
+        loadIndex(0);
+      } else {
+        document.getElementById('showID').textContent = "-";
+        // ... Clear fields ...
+      }
+    }
+
+    function localSearch() {
+      var term = document.getElementById('searchInput').value.toLowerCase();
+      var list = document.getElementById('resultList');
+      list.innerHTML = '';
+      
+      if (!term) {
+        list.style.display = 'none';
+        return;
+      }
+
+      var matches = DB.filter(function(item) {
+        var txt = (item.id + " " + item.us + " " + item.jp + " " + item.th_w).toLowerCase();
+        return txt.includes(term);
+      }).slice(0, 20);
+
+      if (matches.length === 0) {
+        list.innerHTML = '<div class="result-item">ไม่พบข้อมูล</div>';
+      } else {
+        matches.forEach(function(m) {
+          var div = document.createElement('div');
+          div.className = 'result-item';
+          div.textContent = `[${m.id}] ${m.us}`;
+          div.onclick = function() { jumpToItem(m.id); };
+          list.appendChild(div);
+        });
+      }
+      list.style.display = 'block';
+    }
+
+    function jumpToItem(id) {
+      // ✅ [V3.0] Auto Save Draft if Dirty (Hybrid: Navigating away saves to Draft)
+      if (IS_DIRTY) {
+          saveToDraft(false); // Silent Save to Draft
+      }
+
+      var inCurrent = FILTERED_DB.findIndex(x => x.id === id);
+      if (inCurrent === -1) {
+        document.getElementById('filCat1').value = "";
+        document.getElementById('filCat2').value = "";
+        document.getElementById('filCat3').value = "";
+        applyFilter(); 
+      }
+      
+      var idx = FILTERED_DB.findIndex(x => x.id === id);
+      if (idx !== -1) {
+        loadIndex(idx);
+        document.getElementById('resultList').style.display = 'none';
+        document.getElementById('searchInput').value = '';
+      }
+    }
+
+    function loadIndex(idx) {
+      if (idx < 0 || idx >= FILTERED_DB.length) return;
+      
+      setDirty(false); // Reset Dirty
+
+      CURRENT_INDEX = idx;
+      var rawData = FILTERED_DB[idx];
+      
+      // ✅ [V3.0] SMART LOADER: Check Draft First
+      var data = DRAFT_CACHE[rawData.id] ? Object.assign({}, rawData, DRAFT_CACHE[rawData.id]) : rawData;
+
+      document.getElementById('showID').textContent = data.id || "-";
+      document.getElementById('showRow').textContent = data.rowIndex || "-";
+      document.getElementById('show3LID').textContent = data.lid3 || "-";
+      document.getElementById('showENJP').textContent = data.enjp || "-";
+      document.getElementById('showJP').textContent = data.jp || "-";
+      document.getElementById('showUS').textContent = data.us || "-";
+      document.getElementById('showTH_AI').textContent = data.th_ai || "-";
+
+      var elLastUp = document.getElementById('showLastUp');
+      if(elLastUp) elLastUp.textContent = data.lastUp || "-";
+
+      var btnTr = document.getElementById('btnTransTop');
+      if(btnTr) {
+          if (data.jp && data.jp !== "-" && data.jp.trim() !== "") {
+             btnTr.style.display = "block";
+          } else {
+             btnTr.style.display = "none";
+          }
+      }
+
+      // ✅ [UPDATED V2] Alias Parent Data Logic
+      var parentBox = document.getElementById('parentDataBox');
+      
+      if (data.alias && data.alias.trim() !== "") {
+          var parent = DB.find(x => x.id == data.alias);
+          if (parent) {
+              if(parentBox) parentBox.style.display = 'block';
+              
+              var linkName = parent.th_f || parent.th_w || parent.jp || "No Name";
+              setText('showAl_Link', `Link: ${linkName} (${parent.id})`);
+              
+              setCat('showAl_Cat1', parent.cat1);
+              setCat('showAl_Cat2', parent.cat2);
+              setCat('showAl_Cat3', parent.cat3);
+              
+              var genAge = [parent.gender, parent.age].filter(Boolean).join(" | ");
+              setText('showAl_GenAge', genAge || "-");
+              
+              setMetric('showAl_M_F',  parent.m_f,  'F');
+              setMetric('showAl_M_EE', parent.m_ee, 'E'); 
+              setMetric('showAl_M_TI', parent.m_ti, 'TI');
+              setMetric('showAl_M_PE', parent.m_pe, 'PE');
+              
+              setText('showAl_Context', parent.context || "-");
+
+          } else {
+              if(parentBox) parentBox.style.display = 'block';
+              setText('showAl_Link', "❌ Unknown ID: " + data.alias);
+              setCat('showAl_Cat1', null); setCat('showAl_Cat2', null); setCat('showAl_Cat3', null);
+              setText('showAl_GenAge', "-");
+              setMetric('showAl_M_F', null, 'F'); setMetric('showAl_M_EE', null, 'E'); 
+              setMetric('showAl_M_TI', null, 'TI'); setMetric('showAl_M_PE', null, 'PE');
+              setText('showAl_Context', "-"); 
+          }
+      } else {
+          if(parentBox) parentBox.style.display = 'none';
+      }
+
+      function setText(id, val) {
+          var el = document.getElementById(id);
+          if(el) el.textContent = val;
+      }
+
+      function setCat(id, val) {
+          var el = document.getElementById(id);
+          if(el) {
+              if(val && val.toString().trim() !== "") {
+                  el.textContent = val;
+                  el.style.display = "inline-block";
+              } else {
+                  el.style.display = "none"; // ซ่อนถ้าไม่มีค่า
+              }
+          }
+      }
+
+      function setMetric(id, val, placeholder) {
+          var el = document.getElementById(id);
+          if(el) {
+              if(val && val.toString().trim() !== "") {
+                  el.textContent = val;
+                  el.style.color = "#333"; // สีเข้มสำหรับตัวเลขจริง
+              } else {
+                  el.textContent = placeholder;
+                  el.style.color = "#ccc"; // สีจางสำหรับ Placeholder
+              }
+          }
+      }
+
+      document.getElementById('edtAlias').value = data.alias || "";
+      document.getElementById('edtCat1').value = data.cat1 || "";
+      document.getElementById('edtCat2').value = data.cat2 || "";
+      document.getElementById('edtCat3').value = data.cat3 || "";
+      document.getElementById('edtGender').value = data.gender || "";
+      document.getElementById('edtAge').value = data.age || "";
+      
+      document.getElementById('edtTH_W').value = data.th_w || "";
+      document.getElementById('edtTH_F').value = data.th_f || "";
+      document.getElementById('edtStatus').value = data.status || "";
+      document.getElementById('edtContext').value = data.context || "";
+      document.getElementById('edtGenNote').value = data.genNote || "";
+
+      document.getElementById('edtM_F').value = data.m_f || "";
+      document.getElementById('edtM_EE').value = data.m_ee || "";
+      document.getElementById('edtM_TI').value = data.m_ti || "";
+      document.getElementById('edtM_PE').value = data.m_pe || "";
+      
+      if (AUTO_SYNC === true) {
+         google.script.run.withFailureHandler(function(e){}).highlightSheetRow(data.rowIndex);
+      }
+      
+      // ✅ [V3.0] Update Button UI based on Draft Status
+      if(DRAFT_CACHE[data.id]) {
+          setDirty(true); 
+      }
+    }
+
+    function navigate(action) {
+      // ✅ [V3.0] Hybrid Navigation:
+      // ถ้าเปลี่ยนหน้าโดยไม่เซฟ -> Auto-Save ลง Draft (กล่องส้ม)
+      if (IS_DIRTY) {
+          saveToDraft(false); // Silent Save
+      }
+
+      var newIdx = CURRENT_INDEX;
+      if (action === 'first') newIdx = 0;
+      else if (action === 'last') newIdx = FILTERED_DB.length - 1;
+      else newIdx += action;
+
+      if (newIdx >= 0 && newIdx < FILTERED_DB.length) {
+        loadIndex(newIdx);
+      } else {
+        showToast("สุดขอบข้อมูลแล้ว", true);
+      }
+    }
+
+    // =========================================================
+    // PART 4: SAVE SYSTEM (HYBRID DIRECT + BATCH)
+    // =========================================================
+
+    // ✅ [HYBRID FIX] saveData = Direct Save to Server
+    function saveData(autoNext) {
+        if(CURRENT_INDEX === -1) return;
+        var d = FILTERED_DB[CURRENT_INDEX];
+        var now = new Date();
+        var clientTimeStr = now.toLocaleDateString('th-TH') + " " + now.toLocaleTimeString('th-TH');
+
+        // Create Payload
+        var payload = {
+            rowIndex: d.rowIndex, 
+            id: d.id,
+            alias: document.getElementById('edtAlias').value,
+            cat1: document.getElementById('edtCat1').value,
+            cat2: document.getElementById('edtCat2').value,
+            cat3: document.getElementById('edtCat3').value,
+            gender: document.getElementById('edtGender').value,
+            age: document.getElementById('edtAge').value,
+            th_w: document.getElementById('edtTH_W').value,
+            th_f: document.getElementById('edtTH_F').value,
+            status: document.getElementById('edtStatus').value,
+            context: document.getElementById('edtContext').value,
+            genNote: document.getElementById('edtGenNote').value,
+            m_f: document.getElementById('edtM_F').value,
+            m_ee: document.getElementById('edtM_EE').value,
+            m_ti: document.getElementById('edtM_TI').value,
+            m_pe: document.getElementById('edtM_PE').value,
+            clientTime: clientTimeStr 
+        };
+
+        // UI Feedback (Saving...)
+        var btnSave = document.querySelector('.btn-save');
+        var btnSaveNext = document.querySelector('.btn-save-next');
+        var activeBtn = autoNext ? btnSaveNext : btnSave;
+        
+        // เก็บข้อความเดิมไว้ก่อนเปลี่ยน (กันพลาด)
+        var originalText = activeBtn ? activeBtn.textContent : (autoNext ? "Save & Next >" : "Save");
+        if(activeBtn) activeBtn.textContent = "Saving...";
+        if(btnSave) btnSave.disabled = true;
+        if(btnSaveNext) btnSaveNext.disabled = true;
+
+        // 🚀 DIRECT SAVE TO SERVER
+        google.script.run
+            .withSuccessHandler(function(res) {
+                // 1. Update RAM (Main DB)
+                Object.assign(d, payload);
+                d.lastUp = clientTimeStr;
+
+                // 2. ✅ HYBRID CLEANUP: ลบออกจาก Draft เพราะเซฟลง Server แล้ว
+                if (DRAFT_CACHE[d.id]) {
+                    delete DRAFT_CACHE[d.id];
+                    updateDraftDashboard(); // กล่องส้มลดลง
+                }
+
+                // 3. UI Success
+                setDirty(false);
+                showSaveSuccessUI();
+                showToast("Saved to Server! ✅");
+
+                // 4. Restore Buttons
+                if(btnSave) { btnSave.textContent = "Save"; btnSave.disabled = false; }
+                if(btnSaveNext) { btnSaveNext.textContent = "Save & Next >"; btnSaveNext.disabled = false; }
+
+                // 5. Re-render
+                if (!autoNext) loadIndex(CURRENT_INDEX);
+
+                // 6. Navigate
+                if (autoNext) navigate(1);
+            })
+            .withFailureHandler(function(e) {
+                showToast("Error: " + e.message, true);
+                // Restore Buttons on Error
+                if(btnSave) { btnSave.textContent = "Save"; btnSave.disabled = false; }
+                if(btnSaveNext) { btnSaveNext.textContent = "Save & Next >"; btnSaveNext.disabled = false; }
+            })
+            .saveTranslation(payload); // เรียกฟังก์ชันเดิมที่ยิง Server โดยตรง
+    }
+
+    // ฟังก์ชันนี้ใช้สำหรับ Auto-Save ตอนเปลี่ยนหน้า (Navigate)
+    function saveToDraft(showFeedback) {
+        if(CURRENT_INDEX === -1) return;
+        var d = FILTERED_DB[CURRENT_INDEX];
+        var now = new Date();
+        var clientTimeStr = now.toLocaleDateString('th-TH') + " " + now.toLocaleTimeString('th-TH');
+
+        var payload = {
+            rowIndex: d.rowIndex, 
+            id: d.id,
+            alias: document.getElementById('edtAlias').value,
+            cat1: document.getElementById('edtCat1').value,
+            cat2: document.getElementById('edtCat2').value,
+            cat3: document.getElementById('edtCat3').value,
+            gender: document.getElementById('edtGender').value,
+            age: document.getElementById('edtAge').value,
+            th_w: document.getElementById('edtTH_W').value,
+            th_f: document.getElementById('edtTH_F').value,
+            status: document.getElementById('edtStatus').value,
+            context: document.getElementById('edtContext').value,
+            genNote: document.getElementById('edtGenNote').value,
+            m_f: document.getElementById('edtM_F').value,
+            m_ee: document.getElementById('edtM_EE').value,
+            m_ti: document.getElementById('edtM_TI').value,
+            m_pe: document.getElementById('edtM_PE').value,
+            lastUp: clientTimeStr 
+        };
+
+        // 💾 Save to RAM
+        DRAFT_CACHE[d.id] = payload;
+        
+        // ⚠️ Hybrid Logic: ในบริบทนี้ (Navigating away)
+        // เรายังคงสถานะ Dirty (สีน้ำเงิน) ไว้ไหม? 
+        // ไม่ต้อง เพราะเดี๋ยวหน้าจอจะเปลี่ยนไป ID อื่นแล้ว
+        // แต่ปุ่ม Global Save จะ Pulse เตือนเอง
+        
+        if (showFeedback) {
+             showSaveSuccessUI(); 
+             showToast("Auto-Saved to Draft");
+             loadIndex(CURRENT_INDEX);
+        }
+        updateDraftDashboard();
+    }
+
+    function saveAllDrafts() {
+        // ✅ [FIX] เช็คก่อนว่าหน้าปัจจุบันแก้ค้างไว้ไหม ถ้าใช่ให้ยัดลงถังก่อน
+        if (IS_DIRTY) {
+            saveToDraft(false); // false = ไม่ต้องแจ้งเตือน แค่ยัดลงถังเงียบๆ
+        }
+        var draftIDs = Object.keys(DRAFT_CACHE);
+        if (draftIDs.length === 0) {
+            showToast("No drafts to save.", true);
+            return;
+        }
+
+        var btnGlobal = document.getElementById('btnGlobalSave');
+        var originalText = "";
+        if(btnGlobal) {
+            originalText = btnGlobal.innerHTML;
+            btnGlobal.innerHTML = "⏳ Saving...";
+            btnGlobal.disabled = true;
+        }
+
+        var payloadArray = draftIDs.map(id => DRAFT_CACHE[id]);
+
+        google.script.run
+            .withSuccessHandler(function(res) {
+                payloadArray.forEach(p => {
+                    var target = DB.find(x => x.id === p.id);
+                    if(target) Object.assign(target, p);
+                });
+
+                DRAFT_CACHE = {}; 
+                setDirty(false);
+                updateDraftDashboard();
+                showSaveSuccessUI(); 
+
+                if(btnGlobal) {
+                    btnGlobal.innerHTML = "✅ SAVED ALL";
+                    setTimeout(() => { 
+                        btnGlobal.innerHTML = originalText; 
+                        btnGlobal.disabled = false; 
+                    }, 2000);
+                }
+
+                showToast(`✅ Successfully saved ${draftIDs.length} items!`);
+                loadIndex(CURRENT_INDEX);
+            })
+            .withFailureHandler(function(e) {
+                showToast("Error: " + e.message, true);
+                if(btnGlobal) {
+                    btnGlobal.innerHTML = "❌ Failed";
+                    setTimeout(() => { 
+                        btnGlobal.innerHTML = originalText; 
+                        btnGlobal.disabled = false; 
+                    }, 2000);
+                }
+            })
+            .saveTranslationBatch(payloadArray); 
+    }
+    /* ใน Sidebar_JS.js */
+
+    function discardChanges() {
+        // 1. เช็คก่อนว่ามีอะไรให้ลบไหม (ถ้างานสะอาดอยู่แล้ว ก็ไม่ต้องทำอะไร)
+        // เช็คทั้งสถานะ Dirty และเช็คว่ามีของใน Draft Cache ไหม
+        if (!IS_DIRTY && !DRAFT_CACHE[FILTERED_DB[CURRENT_INDEX].id]) {
+            return; // ออกเงียบๆ หรือจะ showToast("Nothing to discard") ก็ได้
+        }
+
+        // --- ✂️ ตัดส่วน confirm() ทิ้งไปเลยครับ ✂️ ---
+
+        // 2. เริ่มกระบวนการล้างบางทันที
+        var currentItem = FILTERED_DB[CURRENT_INDEX];
+        
+        // 2.1 ลบออกจาก Draft (ถ้ามี)
+        if (DRAFT_CACHE[currentItem.id]) {
+            delete DRAFT_CACHE[currentItem.id];
+        }
+
+        // 2.2 รีเซ็ตสถานะ Dirty (ปุ่ม Save กลับเป็นสีเทา)
+        setDirty(false);
+
+        // 2.3 อัปเดต UI (กล่องส้มลดจำนวนลง)
+        updateDraftDashboard(); 
+        showToast("Reverted to Original ↩️");
+
+        // 2.4 โหลดข้อมูลเดิมจาก Server มาทับหน้าจอ
+        loadIndex(CURRENT_INDEX);
+    }
+
+    // === Dashboard UI Controller ===
+    function updateDraftDashboard() {
+        var dash = document.getElementById('draftDashboard');
+        var counter = document.getElementById('draftCountVal');
+        var list = document.getElementById('draftList');
+        var btnGlobal = document.getElementById('btnGlobalSave');
+
+        if (!dash || !counter || !list) return;
+
+        var draftIDs = Object.keys(DRAFT_CACHE);
+        var count = draftIDs.length;
+
+        counter.textContent = count;
+
+        if (count > 0) {
+            dash.style.display = 'flex';
+            if(btnGlobal) btnGlobal.classList.add('has-drafts'); 
+            
+            var html = '';
+            draftIDs.slice(0, 10).forEach((id, idx) => {
+                var shortID = id.replace('UG_', ''); 
+                html += `<span class="draft-item" onclick="jumpToItem('${id}')">${shortID}</span>`;
+                if (idx < draftIDs.length - 1 && idx < 9) {
+                    html += `<span class="draft-sep">|</span>`;
+                }
+            });
+            if (count > 10) html += `<span class="draft-sep">...</span>`;
+            list.innerHTML = html;
+
+        } else {
+            dash.style.display = 'none';
+            if(btnGlobal) btnGlobal.classList.remove('has-drafts');
+        }
+    }
+
+
+    // --- Toggle Auto-Sync Logic ---
+    function toggleAutoSync() {
+        AUTO_SYNC = !AUTO_SYNC;
+        updateAutoSyncBtn();
+        
+        if (AUTO_SYNC && CURRENT_INDEX !== -1) {
+            var d = FILTERED_DB[CURRENT_INDEX];
+            google.script.run.withFailureHandler(function(e){}).highlightSheetRow(d.rowIndex);
+            showToast("Auto-Highlight: ENABLED");
+        } else {
+            showToast("Auto-Highlight: DISABLED");
+        }
+    }
+
+    function updateAutoSyncBtn() {
+        var btnText = AUTO_SYNC ? "🔦 Auto-Highlight: <span style='color:#4caf50; font-weight:bold;'>ON</span>" : "🔦 Auto-Highlight: <span style='color:#999;'>OFF</span>";
+        var btnBorder = AUTO_SYNC ? "1px solid #4caf50" : "1px solid #ccc";
+        
+        var btnSide = document.getElementById('btnAutoSync_Side');
+        if(btnSide) {
+            btnSide.innerHTML = btnText;
+            btnSide.style.border = btnBorder;
+        }
+        
+        var btnPop = document.getElementById('btnAutoSync_Pop');
+        if(btnPop) {
+            btnPop.style.background = AUTO_SYNC ? "#d4edbc" : "#f9f9f9"; 
+            btnPop.style.borderColor = AUTO_SYNC ? "#2e7d32" : "#ccc"; 
+            btnPop.style.boxShadow = AUTO_SYNC ? "inset 0 2px 4px rgba(0,0,0,0.1)" : "none";
+        }
+    }
+
+    // --- Tools (with Center Screen Logic) ---
+
+    function googleSearch() {
+      var jp = document.getElementById('showJP').textContent;
+      var us = document.getElementById('showUS').textContent;
+      if(jp === '-' && us === '-') return;
+      
+      var q = `Final Fantasy VII Rebirth Wiki ${us !== '-' ? us : ''} ${jp !== '-' ? jp : ''}`;
+      var url = 'https://www.google.com/search?q=' + encodeURIComponent(q);
+      
+      var w = 900; var h = 800;
+      var left = (screen.width - w) / 2;
+      var top = (screen.height - h) / 2;
+      window.open(url, 'gsearch_popup', `width=${w},height=${h},top=${top},left=${left},scrollbars=yes,resizable=yes`);
+    }
+
+    function openTransPopup() {
+      var jpName = document.getElementById('showJP').textContent;
+      if (!jpName || jpName === '-' || jpName.trim() === '') return;
+      var url = 'https://translate.google.com/?sl=auto&tl=th&text=' + encodeURIComponent(jpName) + '&op=translate';
+      var w = 500; var h = 650;
+      var left = (screen.width - w) / 2;
+      var top = (screen.height - h) / 2;
+      window.open(url, 'gtrans_popup', `width=${w},height=${h},top=${top},left=${left},scrollbars=yes,resizable=yes`);
+    }
+
+    function copyMetrics() {
+      METRIC_CLIPBOARD.F = document.getElementById('edtM_F').value;
+      METRIC_CLIPBOARD.EE = document.getElementById('edtM_EE').value;
+      METRIC_CLIPBOARD.TI = document.getElementById('edtM_TI').value;
+      METRIC_CLIPBOARD.PE = document.getElementById('edtM_PE').value;
+      showToast("Metrics Copied");
+    }
+
+    function pasteMetrics() {
+      document.getElementById('edtM_F').value = METRIC_CLIPBOARD.F;
+      document.getElementById('edtM_EE').value = METRIC_CLIPBOARD.EE;
+      document.getElementById('edtM_TI').value = METRIC_CLIPBOARD.TI;
+      document.getElementById('edtM_PE').value = METRIC_CLIPBOARD.PE;
+      setDirty(true); // Paste ก็ถือว่าแก้ไข
+      showToast("Metrics Pasted");
+    }
+
+    function showToast(msg, isError) {
+      var t = document.getElementById('toast');
+      if(!t) return;
+      t.textContent = msg;
+      t.style.borderColor = isError ? '#f44336' : '#4ec9b0';
+      t.style.backgroundColor = isError ? '#d32f2f' : '#333';
+      t.className = "show";
+      if(window.toastTimeout) clearTimeout(window.toastTimeout);
+      window.toastTimeout = setTimeout(function(){ t.className = t.className.replace("show", ""); }, 3000);
+    }
+
+    function syncFromSheet() {
+       google.script.run.withSuccessHandler(function(activeId) {
+          if (activeId) {
+            var exists = DB.find(x => x.id === activeId);
+            if(exists) {
+               jumpToItem(activeId);
+               showToast("Synced to: " + activeId);
+            } else {
+               showToast("ไม่พบข้อมูล ID ในระบบ", true);
+            }
+          } else {
+            showToast("ไม่พบ ID ในแถวที่เลือก", true);
+          }
+       }).getActiveSelectionId();
+    }
+
+    function copyText(elementId) {
+      var text = document.getElementById(elementId).textContent;
+      if (text && text !== '-') {
+        navigator.clipboard.writeText(text).then(function() { showToast("Copied: " + text); })
+        .catch(function(err) { fallbackCopyText(text); });
+      }
+    }
+    
+    function fallbackCopyText(text) {
+        var textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try { document.execCommand('copy'); showToast("Copied: " + text); } catch (err) { showToast("Copy Failed", true); }
+        document.body.removeChild(textArea);
+    }
+
+    function pasteToAlias() {
+      navigator.clipboard.readText().then(text => {
+        document.getElementById('edtAlias').value = text;
+        setDirty(true); // Paste ก็ถือว่าแก้ไข
+        showToast("Pasted to Alias");
+      }).catch(err => { showToast("Browser Blocked Paste: กรุณาใช้ Ctrl+V", true); });
+    }
+
+    function copyAndRomaji() {
+      var text = document.getElementById('showJP').textContent;
+      if (!text || text === '-' || text.trim() === '') return;
+      copyText('showJP');
+      var url = 'https://www.romajidesu.com/translator';
+      var w = 1000; var h = 700;
+      var left = (screen.width - w) / 2;
+      var top = (screen.height - h) / 2;
+      window.open(url, 'romaji_popup', `width=${w},height=${h},top=${top},left=${left},scrollbars=yes,resizable=yes`);
+      showToast("Copied & Opened RomajiDesu!");
+    }
+
+    // =========================================================
+    // PART 3: DIRTY STATE MANAGER (Shared Logic)
+    // =========================================================
+
+    function setDirty(state) {
+        IS_DIRTY = state;
+        updateSaveButtonUI();
+    }
+
+    // ✅ [HYBRID UI FIX] ไม่เปลี่ยนชื่อปุ่มเป็น Save to Draft
+    // แต่ยังคงเปลี่ยนสี (Add .dirty class)
+    function updateSaveButtonUI() {
+        var btns = document.querySelectorAll('.btn-save, .btn-save-next');
+        btns.forEach(function(btn) {
+            if (IS_DIRTY) {
+                btn.classList.add('dirty');
+                btn.classList.remove('saved');
+                // btn.textContent = "Save to Draft"; // ❌ เอาออกตามคำสั่ง
+            } else {
+                btn.classList.remove('dirty');
+                // btn.textContent = "Save"; // ❌ เอาออก ไม่ไปยุ่งกับ Text เดิม
+            }
+        });
+    }
+
+    function showSaveSuccessUI() {
+        var btns = document.querySelectorAll('.btn-save, .btn-save-next');
+        btns.forEach(function(btn) {
+            btn.classList.remove('dirty');
+            btn.classList.add('saved');
+            // Remove 'saved' class after 2 seconds
+            setTimeout(function() { btn.classList.remove('saved'); }, 2000);
+        });
+    }
+    
+    function setupDirtyListeners() {
+        var inputs = document.querySelectorAll('input, select, textarea');
+        inputs.forEach(function(el) {
+            if(el.id && el.id.startsWith('edt')) {
+                el.addEventListener('input', function(){ setDirty(true); });
+                el.addEventListener('change', function(){ setDirty(true); });
+            }
+        });
+    }
+
+</script>
