@@ -1,0 +1,310 @@
+<script>
+/* Gemini Chat: 🖥️ FF7 Rebirth Glossary Architect [neo-b]
+    File: Popup_JS.html (Logic)
+    Description: Client-side Controller for Popup Mode (Dark Mode & Observer & Alias List & Town Badges)
+    Status: UPDATE V3.2 (Missing Code Fix)
+    (ณ: 2025-11-30 06:40) (by User)
+*/
+
+  document.addEventListener('DOMContentLoaded', function() {
+      
+      // 1. Initialize Theme
+      initTheme();
+
+      // 2. Setup Dirty Listeners (Input Watcher)
+      setupDirtyListeners();
+
+      // 3. Override Sidebar's loadIndex to inject Popup-specific logic
+      overrideLoadIndex();
+
+      // =========================================================
+      // PART 2: LINKER SYSTEM (Observer)
+      // =========================================================
+      
+      function linkData(sourceId, targetId, formatter, callback) {
+          var source = document.getElementById(sourceId);
+          var target = document.getElementById(targetId);
+          
+          if (source && target) {
+              var observer = new MutationObserver(function() {
+                  var text = source.textContent;
+                  if (formatter) {
+                       target.textContent = formatter(text); 
+                       target.title = text; 
+                  } else {
+                       target.textContent = text; 
+                  }
+                  
+                  if (callback) callback(text);
+              });
+              observer.observe(source, { childList: true, characterData: true, subtree: true });
+          }
+      }
+
+      // --- Wiring ---
+      linkData('showID', 'showID_Center', null, function(newID) {
+           if (typeof DB !== 'undefined' && newID && newID !== '-') {
+               var currentItem = DB.find(x => x.id === newID);
+               if (currentItem) {
+                   updateAliasList(currentItem);
+               }
+           }
+      });
+      
+      linkData('showJP', 'inlineJP');
+      linkData('showENJP', 'inlineEN');
+      linkData('show3LID', 'inline3LID'); 
+      linkData('showTH_AI', 'inlineTH_AI');
+
+      linkData('showUS', 'inlineUS', function(raw) {
+           if (!raw || raw === '-') return '-';
+           return raw.split(',')[0].trim(); 
+      });
+
+  });
+
+  // =========================================================
+  // PART 3: THEME MANAGER
+  // =========================================================
+
+  function toggleTheme() {
+      var body = document.body;
+      var currentTheme = body.getAttribute('data-theme');
+      var btn = document.getElementById('btnThemeToggle');
+      
+      if (currentTheme === 'dark') {
+          body.setAttribute('data-theme', 'light');
+          if(btn) btn.textContent = '🌙'; 
+          localStorage.setItem('ff7_glossary_theme', 'light');
+      } else {
+          body.setAttribute('data-theme', 'dark');
+          if(btn) btn.textContent = '☀️'; 
+          localStorage.setItem('ff7_glossary_theme', 'dark');
+      }
+  }
+
+  function initTheme() {
+      var savedTheme = localStorage.getItem('ff7_glossary_theme');
+      var btn = document.getElementById('btnThemeToggle');
+      
+      if (savedTheme === 'dark') {
+          document.body.setAttribute('data-theme', 'dark');
+          if(btn) btn.textContent = '☀️';
+      } else {
+          document.body.setAttribute('data-theme', 'light');
+          if(btn) btn.textContent = '🌙';
+      }
+  }
+
+  // =========================================================
+  // PART 4: ALIAS LIST GENERATOR
+  // =========================================================
+
+  function jumpToParent() {
+      var currentID = document.getElementById('showID').textContent;
+      if (!currentID || currentID === '-') return;
+
+      var item = DB.find(x => x.id === currentID);
+      if (item && item.alias && item.alias.trim() !== '-' && item.alias.trim() !== '') {
+          jumpToItem(item.alias);
+      } else {
+          showToast("This is already the Master ID");
+      }
+  }
+
+  function updateAliasList(item) {
+      var container = document.getElementById('aliasListContainer');
+      if (!container) return;
+      container.innerHTML = ''; 
+      container.style.display = 'none'; 
+
+      if (!item) return;
+
+      var parentID = item.alias;
+      if (!parentID || parentID === '-' || parentID.trim() === '') {
+          parentID = item.id;
+      }
+
+      var siblings = DB.filter(function(x) {
+          return x.id === parentID || x.alias === parentID;
+      });
+
+      siblings = siblings.filter(function(x) {
+          return x.id !== parentID;
+      });
+
+      if (siblings.length === 0) return; 
+
+      container.style.display = 'block';
+
+      siblings.sort(function(a, b) {
+          return a.id.localeCompare(b.id);
+      });
+
+      var html = '';
+      siblings.forEach(function(sib) {
+          // --- Golden Logic เลือกชื่อ ---
+          var nameShow = sib.th_f;
+          if (!nameShow || nameShow === '') nameShow = sib.th_w;
+          if (!nameShow || nameShow === '') nameShow = sib.jp;
+          if (!nameShow || nameShow === '') nameShow = sib.us;
+          if (!nameShow) nameShow = '-';
+
+          // --- Metrics Formatter ---
+          var mF = sib.m_f || '-';
+          var mEE = sib.m_ee || '-';
+          var mTI = sib.m_ti || '-';
+          var mPE = sib.m_pe || '-';
+          var metricStr = ` ${mF}   ${mEE}   ${mTI}   ${mPE}  `;
+          var shortID = sib.id.replace('UG_0', '');
+
+          var badgesHtml = '<div class="col-a-badge-group">';
+          var c1 = (typeof getSoftCat === 'function') ? getSoftCat(sib.cat1) : sib.cat1;
+          var c2 = (typeof getSoftCat === 'function') ? getSoftCat(sib.cat2) : sib.cat2;
+          var c3 = (typeof getSoftCat === 'function') ? getSoftCat(sib.cat3) : sib.cat3;
+
+          if(sib.cat1) badgesHtml += `<span class="badge-cat badge-c1">${c1}</span>`;
+          if(sib.cat2) badgesHtml += `<span class="badge-cat badge-c2">${c2}</span>`;
+          if(sib.cat3) badgesHtml += `<span class="badge-cat badge-c3">${c3}</span>`;
+          badgesHtml += '</div>';
+
+          var activeClass = (sib.id === item.id) ? 'active' : '';
+
+          html += `<div class="alias-row ${activeClass}" onclick="jumpToItem('${sib.id}')">`;
+          html +=   `<div class="col-a-id" title="${sib.id}">${shortID}</div>`;
+          html +=   `<div class="col-a-3l">${sib.lid3 || ''}</div>`;
+          html +=   `<div class="col-a-name" title="${nameShow}">${nameShow}</div>`;
+          html +=   badgesHtml; 
+          html +=   `<div class="col-a-met">${metricStr}</div>`;
+          html += `</div>`;
+      });
+
+      container.innerHTML = html;
+  }
+  
+  function updateAutoSyncBtn() {
+        // กำหนดสี: ถ้าเปิด (ON) ให้เป็นสีเขียวอ่อน, ถ้าปิด (OFF) ให้เป็นสีเทาอ่อนเดิมๆ
+        var bg = AUTO_SYNC ? "#d4edbc" : "#f9f9f9"; 
+        var borderColor = AUTO_SYNC ? "#2e7d32" : "#ccc"; 
+        
+        // เช็คก่อนว่าปุ่มมีอยู่จริงไหม (กัน Error)
+        var btnSide = document.getElementById('btnAutoSync_Side');
+        if(btnSide) {
+            // ของ Sidebar (ถ้ายังมีอยู่) ให้คง Text ไว้แบบเดิม
+            var btnText = AUTO_SYNC ? "🔦 Auto-Highlight: <span style='color:#4caf50; font-weight:bold;'>ON</span>" : "🔦 Auto-Highlight: <span style='color:#999;'>OFF</span>";
+            var btnBorder = AUTO_SYNC ? "1px solid #4caf50" : "1px solid #ccc";
+            btnSide.innerHTML = btnText;
+            btnSide.style.border = btnBorder;
+        }
+        
+        var btnPop = document.getElementById('btnAutoSync_Pop');
+        if(btnPop) {
+            // ของ Popup (แบบใหม่) แก้แค่สี Background และ Border ไม่ยุ่งกับ Text (Emoji)
+            btnPop.style.background = bg;
+            btnPop.style.borderColor = borderColor;
+            
+            // เพิ่มลูกเล่น: ถ้าเปิดอยู่ ให้ปุ่มดูจมลงไปนิดนึง (Inset Shadow)
+            btnPop.style.boxShadow = AUTO_SYNC ? "inset 0 2px 4px rgba(0,0,0,0.1)" : "none";
+        }
+    }
+  // --- [NEW] Hotkey Binding (F18 -> Sync) ---
+  document.addEventListener('keydown', function(event) {
+      // ตรวจสอบว่าปุ่มที่กดคือ "F18" หรือไม่
+      if (event.key === "F18") {
+          event.preventDefault(); // กันไม่ให้ Browser ทำงานซ้ำซ้อน (ถ้ามี)
+          
+          // เรียกฟังก์ชัน Sync
+          syncFromSheet();
+          
+          // (Optional) สั่นปุ่มหรือแจ้งเตือนว่ากดแล้ว
+          console.log("F18 Pressed: Syncing...");
+      }
+  });
+
+  // =========================================================
+  // PART 5: INPUT WATCHER (Dirty State)
+  // =========================================================
+
+  function setupDirtyListeners() {
+      var inputs = document.querySelectorAll('input, select, textarea');
+      inputs.forEach(function(el) {
+          if(el.id && el.id.startsWith('edt')) {
+              el.addEventListener('input', triggerDirty);
+              el.addEventListener('change', triggerDirty);
+          }
+      });
+  }
+
+  function triggerDirty() {
+      if(typeof setDirty === 'function') {
+          setDirty(true);
+      }
+  }
+
+  // =========================================================
+  // PART 6: SIDEBAR OVERRIDE & TOWN BADGES (V3.1)
+  // =========================================================
+
+  function overrideLoadIndex() {
+      // 1. เก็บฟังก์ชันเดิมจาก Sidebar_JS ไว้
+      if (typeof loadIndex !== 'function') return;
+      var baseLoadIndex = loadIndex;
+
+      // 2. สร้างฟังก์ชันใหม่ทับลงไป
+      loadIndex = function(idx) {
+          // เรียกฟังก์ชันแม่ให้ทำงานหลัก (Load Data ลง Input)
+          baseLoadIndex(idx);
+
+          // ทำงานเสริม: แสดงป้ายชื่อเมือง
+          updateTownBadges(idx);
+      };
+      
+      console.log("System: loadIndex overridden for Town Badges support.");
+  }
+
+  function updateTownBadges(idx) {
+      var container = document.getElementById('townBadges');
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (idx < 0 || idx >= FILTERED_DB.length) return;
+
+      // Logic ดึงข้อมูล (ต้องรองรับ Draft Mode เหมือน Sidebar)
+      var rawData = FILTERED_DB[idx];
+      var data = (typeof DRAFT_CACHE !== 'undefined' && DRAFT_CACHE[rawData.id]) 
+                 ? Object.assign({}, rawData, DRAFT_CACHE[rawData.id]) 
+                 : rawData;
+
+      if (!data.towns || data.towns.toString().trim() === '') return;
+
+      // Data format: "02-GL, 03-JN, 04-CR"
+      var towns = data.towns.toString().split(',');
+      
+      var html = '';
+      towns.forEach(function(t) {
+          t = t.trim();
+          // ตัดเลขข้างหน้า 3 ตัว (ถ้ามี -)
+          var label = t;
+          if (t.includes('-')) {
+              label = t.substring(t.indexOf('-') + 1);
+          }
+          
+          // Badge Style (Inline for safety)
+          // สีพื้นหลัง: ฟ้าอ่อน (#e0f7fa), ตัวหนังสือ: ฟ้าเข้ม (#006064)
+          html += `<span style="
+              background-color: #e0f7fa; 
+              color: #006064; 
+              border: 1px solid #b2ebf2; 
+              border-radius: 4px; 
+              padding: 1px 5px; 
+              font-size: 11px; 
+              font-weight: bold; 
+              font-family: 'Consolas', monospace;
+              cursor: default;
+          " title="${t}">${label}</span>`;
+      });
+
+      container.innerHTML = html;
+  }
+
+</script>
