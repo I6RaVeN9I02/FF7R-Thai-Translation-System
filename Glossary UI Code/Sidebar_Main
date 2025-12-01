@@ -1,0 +1,177 @@
+<!-- 
+    Gemini Chat: ...
+    File: Sidebar_Main.html (View)
+    Status: V3.0 ()
+    Description: 
+    (ณ: 2025-11-30 06:00) (by NoName Gemini)
+-->
+
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/styles.css">
+  
+  <?!= include('Global_CSS'); ?>
+  
+</head>
+<body>
+
+  <div class="top-bar">
+    <button class="btn-top-refresh" onclick="refreshData()">
+      🔄 โหลดข้อมูล
+    </button>
+    <span id="liveClock" class="live-clock">--:--</span>
+  </div>
+
+  <div id="initLoader">
+    <h3>⏳ กำลังโหลดฐานข้อมูล...</h3>
+    <p>กำลังเชื่อมต่อกับ Google Sheets...</p>
+  </div>
+
+  <div id="mainApp">
+    
+    <div class="filter-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+        <div style="font-weight:bold; font-size:11px; color:#1565c0;">Filter Navigation</div>
+        <div style="font-weight:bold; font-size:11px; color:#666;">
+          Active items: <span id="countDisplay">0</span>
+        </div>
+      </div>
+      <div class="filter-controls">
+        <select id="filCat1" onchange="applyFilter()"><option value="">All Cat 1</option></select>
+        <select id="filCat2" onchange="applyFilter()"><option value="">All Cat 2</option></select>
+        <select id="filCat3" onchange="applyFilter()"><option value="">All Cat 3</option></select>
+      </div>
+    </div>
+
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="ค้นหา (ID, Name JP/US/TH)..." onkeyup="localSearch()">
+    </div>
+    <div id="resultList" class="search-results"></div>
+
+    <div class="editor-card" id="editorCard">
+      
+      <div class="info-row">
+        <span>ID: <b id="showID" class="id-clickable" onclick="copyText('showID')" title="คลิกเพื่อคัดลอก" style="font-size:14px; color:#1a73e8;">-</b></span>
+        <span>Row: <span id="showRow">-</span></span>
+        
+        <div style="display:flex; gap:3px;">
+            <button id="btnTransTop" class="btn-trans" onclick="openTransPopup()" style="display:none;">G Trans</button>
+            <button class="btn-google" onclick="googleSearch()">G Search</button>
+        </div>
+      </div>
+
+      <div class="source-box" style="margin-top: 5px;">
+        <span class="label-mini">Alias Info</span>
+        <div id="showAliasData" class="sub-info" style="color:#d32f2f; font-weight:bold;">-</div>
+
+        <span class="label-mini">3LID / Name ENJP</span>
+        <div class="sub-info"><span id="show3LID">-</span> / <span id="showENJP">-</span></div>
+
+        <div style="height:5px"></div>
+        <span class="label-mini">🇯🇵 Name JP</span>
+        <span class="source-text id-clickable" id="showJP" style="color:#d32f2f;" onclick="copyAndRomaji()" title="คลิกเพื่อ: คัดลอก & เปิด RomajiDesu">-</span>
+        
+        <div style="height:5px"></div>
+        <span class="label-mini">🇺🇸 Name US</span>
+        <span class="source-text" id="showUS" style="color:#1a73e8;">-</span>
+
+        <div style="height:5px"></div>
+        <span class="source-text" id="showTH_AI" style="color:#00796b;" title="AI Translation">-</span>
+      </div>
+
+      <div class="form-group">
+        <span class="label-mini">Alias ID</span>
+        <div style="display: flex; gap: 5px;">
+           <input type="text" id="edtAlias" style="flex: 1;" placeholder="วาง ID ที่นี่...">
+           <button class="btn-paste-mini" onclick="pasteToAlias()" title="วางจาก Clipboard">Paste</button>
+        </div>
+      </div>
+
+      <div class="cat-grid">
+        <select id="edtCat1"></select>
+        <select id="edtCat2"></select>
+        <select id="edtCat3"></select>
+      </div>
+
+      <div class="form-group">
+        <span class="label-mini">Gender</span>
+        <select id="edtGender"><option value="">-</option></select>
+      </div>
+      <div class="form-group">
+        <span class="label-mini">Age Range</span>
+        <select id="edtAge"><option value="">-</option></select>
+      </div>
+
+      <div class="form-group">
+        <span class="label-mini">Metrics (F / EE / TI / PE)</span>
+        <div class="metrics-grid">
+          <div class="metric-col"><div class="metric-label">F</div><input type="text" id="edtM_F" class="metric-input"></div>
+          <div class="metric-col"><div class="metric-label">EE</div><input type="text" id="edtM_EE" class="metric-input"></div>
+          <div class="metric-col"><div class="metric-label">TI</div><input type="text" id="edtM_TI" class="metric-input"></div>
+          <div class="metric-col"><div class="metric-label">PE</div><input type="text" id="edtM_PE" class="metric-input"></div>
+        </div>
+        <div class="metric-tools">
+          <button class="btn-copy" onclick="copyMetrics()">Copy Metrics</button>
+          <button class="btn-paste" onclick="pasteMetrics()">Paste Metrics</button>
+        </div>
+      </div>
+
+      <hr style="border:0; border-top:1px solid #eee; margin:10px 0;">
+
+      <div class="form-group">
+        <span class="label-mini">🇹🇭 TH Working</span>
+        <input type="text" id="edtTH_W">
+      </div>
+      <div class="form-group">
+        <span class="label-mini">🇹🇭 TH Final</span>
+        <input type="text" id="edtTH_F">
+      </div>
+      <div class="form-group">
+        <span class="label-mini">Status</span>
+        <select id="edtStatus"></select>
+      </div>
+
+      <div class="form-group">
+        <span class="label-mini">Translator Context (Edit)</span>
+        <textarea id="edtContext" rows="1"></textarea>
+      </div>
+      <div class="form-group">
+        <span class="label-mini">General Note (Edit)</span>
+        <textarea id="edtGenNote" rows="1"></textarea>
+      </div>
+
+      <div class="btn-nav-row">
+        <button class="btn-nav" onclick="navigate('first')">&lt;&lt;</button>
+        <button class="btn-nav" onclick="navigate(-1)">&lt; Prev</button>
+        <button class="btn-nav" onclick="navigate(1)">Next &gt;</button>
+        <button class="btn-nav" onclick="navigate('last')">&gt;&gt;</button>
+      </div>
+      <div class="btn-action-row">
+        <button class="btn-save" onclick="saveData(false)">Save</button>
+        <button class="btn-save-next" onclick="saveData(true)">Save & Next &gt;</button>
+      </div>
+
+    </div>
+
+    <div class="refresh-zone">
+      <button class="btn-refresh" style="background:#0b8043; margin-bottom:5px;" onclick="syncFromSheet()">
+        📥 ดึงข้อมูลจากเซลล์ที่เลือก
+      </button>
+      
+      <!-- ✅ [NEW] ปุ่ม Toggle Highlight -->
+      <button id="btnAutoSync_Side" onclick="toggleAutoSync()" 
+              style="width:100%; padding:8px; margin-top:5px; border:1px solid #ccc; background:#f9f9f9; color:#999; border-radius:4px; cursor:pointer; font-size:11px;">
+          🔦 Auto-Highlight: OFF
+      </button>
+    </div>
+
+  </div>
+  
+  <div id="toast">Saved!</div>
+
+  <?!= include('Sidebar_JS'); ?>
+
+</body>
+</html>
